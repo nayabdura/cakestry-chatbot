@@ -51,7 +51,7 @@ npm run dev
 
 App running on **http://localhost:3000** → chat interface at `/chat`, admin dashboard at `/admin`.
 
-Seeded staff accounts:
+Seed accounts:
 
 | Account | Email | Password | Access Scope |
 | --- | --- | --- | --- |
@@ -59,6 +59,19 @@ Seeded staff accounts:
 | Bakery Administrator | `admin@cakestry.com` | `Password123!` | Bakery Admin Dashboard |
 | Bakery Staff Agent | `staff@cakestry.com` | `Password123!` | Bakery Staff Dashboard |
 | Events Staff Officer | `events@cakestry.com` | `Password123!` | Events Staff Dashboard |
+
+---
+
+## 🌐 Production Deployment (Database Mart VPS)
+
+For deploying to **Database Mart VPS hosting** and connecting your custom domain:
+
+1. **DNS**: Point domain `A` record (`@` & `www`) to your Database Mart VPS Public IP.
+2. **Server Setup**: Install Node.js 20, Nginx, Certbot, PM2.
+3. **Build & PM2**: `npm ci && npx prisma db push && npm run db:seed && npm run build && pm2 start npm --name "cakestry" -- start`
+4. **Nginx & SSL**: Configure Nginx reverse proxy on port 3000 (with `proxy_buffering off` for `/api/chat`) and run `sudo certbot --nginx`.
+
+For complete step-by-step commands, view [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ---
 
