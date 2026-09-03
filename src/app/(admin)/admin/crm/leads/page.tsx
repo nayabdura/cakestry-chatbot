@@ -16,7 +16,7 @@ import { findService } from "@/data/marketing/services";
 import { formatDate, humanise, truncate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
-export const metadata = { title: "Marketing Leads" };
+export const metadata = { title: "Cake Orders" };
 
 const STAGES: LeadStage[] = [
   "NEW", "CONTACTED", "QUALIFIED", "PROPOSAL_SENT", "NEGOTIATION", "WON", "LOST",
@@ -95,9 +95,9 @@ export default async function LeadsPage({
   return (
     <>
       <PageHeader
-        title="Marketing Leads"
+        title="Cake Orders"
         department="MARKETING"
-        description="Every enquiry captured by the assistant, WhatsApp, the website and your team — moved through the BITSOL Marketing sales pipeline."
+        description="Every cake order enquiry captured by the assistant, WhatsApp, the website and your team — managed through the Cakestry Bakery pipeline."
       />
 
       {error && <DbNotice error={error} />}

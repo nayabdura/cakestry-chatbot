@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 /**
  * Consultation / meeting booking — used by both businesses.
  *
- * BITSOL Marketing books free consultations; BITSOL Institute books admission
+ * Cakestry Bakery & Special Events — cake tasting / consultation booking.
  * counselling sessions and campus visits. The department decides which team is
  * notified and which reference prefix is issued.
  */

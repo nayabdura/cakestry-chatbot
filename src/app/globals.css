@@ -4,20 +4,7 @@
 
 /*
  * =============================================================================
- *  BITSOL AI Assistant — theme
- * =============================================================================
- *
- *  Three palettes, all HSL CSS variables so shadcn/ui primitives work unchanged:
- *
- *    :root                        BITSOL umbrella (indigo/violet) — used on the
- *                                 landing page, splash and welcome screen,
- *                                 before a business has been chosen.
- *    [data-department="MARKETING"] Electric blue — BITSOL Marketing.
- *    [data-department="INSTITUTE"] Academy emerald — BITSOL Institute.
- *
- *  Setting `data-department` on any wrapper re-themes everything inside it, so
- *  the chat window changes brand the moment the router decides — no component
- *  needs to know which business it is rendering for.
+ *  Cakestry AI Assistant — theme
  * =============================================================================
  */
 @layer base {
@@ -26,119 +13,117 @@
     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
       "Noto Naskh Arabic", "Jameel Noori Nastaleeq", "Nafees Web Naskh", sans-serif;
 
-    --background: 228 40% 98%;
-    --foreground: 231 45% 13%;
+    --background: 30 40% 98%;
+    --foreground: 20 45% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 231 45% 13%;
+    --card-foreground: 20 45% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 231 45% 13%;
+    --popover-foreground: 20 45% 13%;
 
-    /* BITSOL indigo */
-    --primary: 231 62% 30%;
+    /* Cakestry warm orange/amber */
+    --primary: 20 90% 48%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 228 38% 96%;
-    --secondary-foreground: 231 45% 18%;
+    --secondary: 30 38% 96%;
+    --secondary-foreground: 20 45% 18%;
 
-    /* BITSOL violet */
-    --accent: 262 68% 56%;
+    --accent: 28 92% 54%;
     --accent-foreground: 0 0% 100%;
 
-    --muted: 228 28% 94%;
-    --muted-foreground: 231 16% 44%;
+    --muted: 30 28% 94%;
+    --muted-foreground: 20 16% 44%;
 
     --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 231 22% 88%;
-    --input: 231 22% 88%;
-    --ring: 231 62% 42%;
+    --border: 25 22% 88%;
+    --input: 25 22% 88%;
+    --ring: 20 90% 48%;
 
     --radius: 0.9rem;
 
-    /* Hero/splash backdrop stops, overridden per department below. */
-    --brand-a: 231 62% 22%;
-    --brand-b: 262 68% 34%;
+    --brand-a: 20 90% 32%;
+    --brand-b: 28 92% 42%;
   }
 
-  /* ---------------------------------------------- BITSOL Marketing (blue) -- */
+  /* ---------------------------------------------- Cakestry Bakery ---------- */
   [data-department="MARKETING"] {
-    --primary: 219 78% 34%;
+    --primary: 20 90% 48%;
     --primary-foreground: 0 0% 100%;
-    --accent: 199 89% 45%;
+    --accent: 28 92% 54%;
     --accent-foreground: 0 0% 100%;
-    --ring: 219 78% 46%;
-    --secondary: 214 40% 96%;
-    --secondary-foreground: 217 45% 18%;
-    --muted: 214 30% 94%;
-    --border: 214 24% 88%;
-    --input: 214 24% 88%;
-    --brand-a: 219 78% 20%;
-    --brand-b: 199 89% 28%;
+    --ring: 20 90% 48%;
+    --secondary: 30 40% 96%;
+    --secondary-foreground: 20 45% 18%;
+    --muted: 30 30% 94%;
+    --border: 25 24% 88%;
+    --input: 25 24% 88%;
+    --brand-a: 20 90% 28%;
+    --brand-b: 28 92% 36%;
   }
 
-  /* ---------------------------------------------- BITSOL Institute (green) - */
+  /* ---------------------------------------------- Cakestry Special Events --- */
   [data-department="INSTITUTE"] {
-    --primary: 168 74% 22%;
+    --primary: 16 85% 42%;
     --primary-foreground: 0 0% 100%;
-    --accent: 158 68% 40%;
+    --accent: 24 88% 50%;
     --accent-foreground: 0 0% 100%;
-    --ring: 168 74% 34%;
-    --secondary: 160 32% 95%;
-    --secondary-foreground: 168 45% 16%;
-    --muted: 160 24% 93%;
-    --border: 160 20% 87%;
-    --input: 160 20% 87%;
-    --brand-a: 168 74% 14%;
-    --brand-b: 158 68% 24%;
+    --ring: 16 85% 42%;
+    --secondary: 25 32% 95%;
+    --secondary-foreground: 16 45% 16%;
+    --muted: 25 24% 93%;
+    --border: 25 20% 87%;
+    --input: 25 20% 87%;
+    --brand-a: 16 85% 24%;
+    --brand-b: 24 88% 32%;
   }
 
   .dark {
-    --background: 231 42% 8%;
-    --foreground: 228 38% 96%;
+    --background: 20 42% 8%;
+    --foreground: 30 38% 96%;
 
-    --card: 231 38% 12%;
-    --card-foreground: 228 38% 96%;
+    --card: 20 38% 12%;
+    --card-foreground: 30 38% 96%;
 
-    --popover: 231 38% 12%;
-    --popover-foreground: 228 38% 96%;
+    --popover: 20 38% 12%;
+    --popover-foreground: 30 38% 96%;
 
-    --primary: 231 88% 72%;
-    --primary-foreground: 231 45% 10%;
+    --primary: 20 90% 60%;
+    --primary-foreground: 20 45% 10%;
 
-    --secondary: 231 26% 18%;
-    --secondary-foreground: 228 38% 96%;
+    --secondary: 20 26% 18%;
+    --secondary-foreground: 30 38% 96%;
 
-    --accent: 262 78% 68%;
-    --accent-foreground: 231 45% 10%;
+    --accent: 28 88% 62%;
+    --accent-foreground: 20 45% 10%;
 
-    --muted: 231 26% 18%;
-    --muted-foreground: 231 16% 66%;
+    --muted: 20 26% 18%;
+    --muted-foreground: 20 16% 66%;
 
     --destructive: 0 62% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 231 26% 22%;
-    --input: 231 26% 22%;
-    --ring: 231 88% 72%;
+    --border: 20 26% 22%;
+    --input: 20 26% 22%;
+    --ring: 20 90% 60%;
   }
 
   .dark [data-department="MARKETING"] {
-    --primary: 205 90% 66%;
-    --primary-foreground: 217 45% 10%;
-    --accent: 191 84% 54%;
-    --accent-foreground: 217 45% 10%;
-    --ring: 205 90% 66%;
+    --primary: 20 90% 60%;
+    --primary-foreground: 20 45% 10%;
+    --accent: 28 88% 62%;
+    --accent-foreground: 20 45% 10%;
+    --ring: 20 90% 60%;
   }
 
   .dark [data-department="INSTITUTE"] {
-    --primary: 158 66% 55%;
-    --primary-foreground: 168 45% 8%;
-    --accent: 152 62% 46%;
+    --primary: 16 85% 58%;
+    --primary-foreground: 16 45% 8%;
+    --accent: 24 88% 56%;
     --accent-foreground: 0 0% 100%;
-    --ring: 158 66% 55%;
+    --ring: 16 85% 58%;
   }
 }
 
@@ -153,16 +138,10 @@
 }
 
 @layer components {
-  /* Frosted-glass surface used across cards, chat and headers. */
   .glass {
     @apply bg-white/70 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/10;
   }
 
-  /*
-   * Brand backdrop. Picks up whichever --brand-* pair is in scope, so the same
-   * class renders indigo on the landing page, blue inside a Marketing chat and
-   * emerald inside an Institute chat.
-   */
   .brand-gradient {
     background:
       radial-gradient(1200px 600px at 10% -10%, hsl(var(--brand-a) / 0.95), transparent 60%),
@@ -170,7 +149,6 @@
       linear-gradient(160deg, hsl(var(--brand-a)), hsl(var(--brand-b)));
   }
 
-  /* Right-to-left friendly text block for Urdu / Punjabi content. */
   .urdu {
     direction: rtl;
     text-align: right;
@@ -179,7 +157,6 @@
   }
 }
 
-/* Slim, unobtrusive scrollbar for the chat transcript and admin tables. */
 .scroll-slim::-webkit-scrollbar {
   width: 8px;
   height: 8px;

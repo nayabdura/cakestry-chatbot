@@ -6,7 +6,7 @@ import { Callout, DbNotice, PageHeader, StatusBadge } from "@/components/admin/u
 import { Card } from "@/components/ui/card";
 import { INSTITUTE_COURSES } from "@/data/institute/courses";
 
-export const metadata = { title: "Courses" };
+export const metadata = { title: "Event Packages" };
 
 export default async function CoursesPage() {
   const session = await requireAdmin("/admin/catalogue/courses");
@@ -57,9 +57,9 @@ export default async function CoursesPage() {
   return (
     <>
       <PageHeader
-        title="Courses"
+        title="Event Packages"
         department="INSTITUTE"
-        description="The BITSOL Institute course catalogue the assistant answers from — curriculum, duration, fees, trainers and certification."
+        description="The Cakestry Special Events package catalogue the assistant answers from — included items, guest count, and pricing."
       />
 
       {error && <DbNotice error={error} />}

@@ -1,20 +1,16 @@
 /**
  * =============================================================================
- *  Database seed — BITSOL AI Assistant
- *  Designed & Developed by BITSOL MARKETING
+ *  Database seed — Cakestry AI Assistant
  * =============================================================================
  *
- *  Populates a production-ready starting state:
+ *  Populates a production-ready starting state for Cakestry Bakery:
  *
  *    • RBAC — permissions, roles and role/permission grants
- *    • Users — super admin plus one scoped staff account per business
- *    • BITSOL Marketing — services, portfolio, reviews
- *    • BITSOL Institute — faculty, courses, upcoming batches
- *    • Both knowledge bases (kept in physically separate tables)
+ *    • Users — developer super admin, bakery admin, staff agents
+ *    • Cakestry Bakery — products, portfolio, reviews
+ *    • Cakestry Special Events — event catering packages, upcoming events
+ *    • Both knowledge bases
  *    • Settings, WhatsApp templates, announcements and events
- *
- *  Idempotent: every write is an upsert or an existence check, so it is safe to
- *  re-run after editing the catalogues in `src/data`.
  *
  *  Run with:  npm run db:seed
  * =============================================================================
@@ -32,7 +28,7 @@ const prisma = new PrismaClient();
 const rounds = Number(process.env.BCRYPT_ROUNDS ?? 12);
 
 async function main() {
-  console.log("🌱  Seeding the BITSOL AI Assistant database…\n");
+  console.log("🌱  Seeding the Cakestry AI Assistant database…\n");
 
   await seedPermissionsAndRoles();
   await seedUsers();
@@ -85,15 +81,15 @@ const ROLES: Array<{
 }> = [
   {
     key: "super-admin",
-    name: "Super Admin",
-    description: "Unrestricted access across both businesses.",
+    name: "Developer / Super Admin",
+    description: "Unrestricted system access for developer and admin console.",
     department: null,
     permissions: "ALL",
   },
   {
     key: "marketing-admin",
-    name: "Marketing Admin",
-    description: "Full access to BITSOL Marketing modules.",
+    name: "Bakery Admin",
+    description: "Full access to Cakestry Bakery modules.",
     department: "MARKETING",
     permissions: [
       "dashboard.view", "conversations.view", "conversations.takeover",
@@ -105,8 +101,8 @@ const ROLES: Array<{
   },
   {
     key: "sales-agent",
-    name: "Sales Agent",
-    description: "Works the BITSOL Marketing lead pipeline.",
+    name: "Bakery Staff Agent",
+    description: "Works the Cakestry Bakery cake order pipeline.",
     department: "MARKETING",
     permissions: [
       "dashboard.view", "conversations.view", "crm.leads.view", "crm.leads.manage",
@@ -115,8 +111,8 @@ const ROLES: Array<{
   },
   {
     key: "institute-admin",
-    name: "Institute Admin",
-    description: "Full access to BITSOL Institute modules.",
+    name: "Events Admin",
+    description: "Full access to Cakestry Special Events modules.",
     department: "INSTITUTE",
     permissions: [
       "dashboard.view", "conversations.view", "conversations.takeover",
@@ -129,8 +125,8 @@ const ROLES: Array<{
   },
   {
     key: "admissions-officer",
-    name: "Admissions Officer",
-    description: "Works the BITSOL Institute admissions pipeline.",
+    name: "Events Officer",
+    description: "Works the Cakestry Special Events inquiry pipeline.",
     department: "INSTITUTE",
     permissions: [
       "dashboard.view", "conversations.view", "crm.admissions.view",
@@ -192,25 +188,33 @@ async function seedPermissionsAndRoles() {
 async function seedUsers() {
   const accounts = [
     {
-      email: process.env.SEED_ADMIN_EMAIL ?? "admin@bitsol.local",
-      password: process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe#2024",
-      name: "System Administrator",
+      email: "developer@cakestry.com",
+      password: process.env.SEED_ADMIN_PASSWORD ?? "Password123!",
+      name: "System Developer & Super Admin",
       role: "SUPER_ADMIN" as const,
       department: null,
       roleKey: "super-admin",
     },
     {
-      email: "sales@bitsol.local",
-      password: process.env.SEED_STAFF_PASSWORD ?? "ChangeMe#2024",
-      name: "Marketing Sales Agent",
+      email: process.env.SEED_ADMIN_EMAIL ?? "admin@cakestry.com",
+      password: process.env.SEED_ADMIN_PASSWORD ?? "Password123!",
+      name: "Bakery Administrator",
+      role: "ADMIN" as const,
+      department: "MARKETING" as Department,
+      roleKey: "marketing-admin",
+    },
+    {
+      email: "staff@cakestry.com",
+      password: process.env.SEED_STAFF_PASSWORD ?? "Password123!",
+      name: "Bakery Staff Agent",
       role: "AGENT" as const,
       department: "MARKETING" as Department,
       roleKey: "sales-agent",
     },
     {
-      email: "admissions@bitsol.local",
-      password: process.env.SEED_STAFF_PASSWORD ?? "ChangeMe#2024",
-      name: "Admissions Officer",
+      email: "events@cakestry.com",
+      password: process.env.SEED_STAFF_PASSWORD ?? "Password123!",
+      name: "Events Staff Officer",
       role: "AGENT" as const,
       department: "INSTITUTE" as Department,
       roleKey: "admissions-officer",
@@ -524,26 +528,26 @@ async function seedSettings() {
       key: "branding.marketing",
       group: "branding",
       department: "MARKETING",
-      value: { logoUrl: "", primaryColor: "#1a3fa0", accentColor: "#0ea5e9" },
-      description: "BITSOL Marketing logo and brand colours.",
+      value: { logoUrl: "", primaryColor: "#ea580c", accentColor: "#f97316" },
+      description: "Cakestry Bakery logo and brand colours.",
     },
     {
       key: "branding.institute",
       group: "branding",
       department: "INSTITUTE",
-      value: { logoUrl: "", primaryColor: "#0f5f52", accentColor: "#22a06b" },
-      description: "BITSOL Institute logo and brand colours.",
+      value: { logoUrl: "", primaryColor: "#9a3412", accentColor: "#c2410c" },
+      description: "Cakestry Special Events logo and brand colours.",
     },
     {
       key: "company.marketing",
       group: "company",
       department: "MARKETING",
       value: {
-        name: "BITSOL Marketing",
-        phone: "+92 312 0141581",
-        email: "info@bitsolmarketing.com",
-        address: "Faisalabad, Pakistan",
-        hours: "Mon–Sat, 10:00 AM – 7:00 PM",
+        name: "Cakestry Bakery & Custom Cakes",
+        phone: "+92 300 1234567",
+        email: "order@cakestry.com",
+        address: "Model Town, Bahawal Nagar, Punjab, Pakistan",
+        hours: "Mon–Sun, 8:00 AM – 11:00 PM",
       },
       description: "Company details shown by the assistant and on the website.",
     },
@@ -552,19 +556,19 @@ async function seedSettings() {
       group: "company",
       department: "INSTITUTE",
       value: {
-        name: "BITSOL Institute of Digital Media & Artificial Intelligence",
-        phone: "+92 312 0141581",
-        email: "admissions@bitsolinstitute.com",
-        address: "Faisalabad, Pakistan",
-        hours: "Mon–Sat, 9:00 AM – 8:00 PM",
+        name: "Cakestry Special Events & Gift Boxes",
+        phone: "+92 321 6759463",
+        email: "events@cakestry.com",
+        address: "Model Town, Bahawal Nagar, Punjab, Pakistan",
+        hours: "Mon–Sun, 9:00 AM – 9:00 PM",
       },
-      description: "Institute details shown by the assistant and on the website.",
+      description: "Special Events details shown by the assistant and on the website.",
     },
     {
       key: "ai.defaults",
       group: "integrations",
       department: null,
-      value: { provider: "claude", model: "claude-opus-4-8", maxTokens: 1400, thinking: false },
+      value: { provider: "openai", model: "gpt-3.5-turbo", maxTokens: 1400, thinking: false },
       description: "Default AI provider settings (env vars take precedence).",
     },
     {
@@ -593,36 +597,36 @@ async function seedContent() {
     {
       key: "mk-lead-ack",
       department: "MARKETING" as Department,
-      name: "Lead acknowledgement",
-      body: "Hi {{1}}, thanks for contacting BITSOL Marketing. Your request {{2}} is logged and our team will call you within one working day.",
+      name: "Order acknowledgement",
+      body: "Hi {{1}}, thanks for contacting Cakestry Bakery. Your cake order request {{2}} is logged and our team will call you within one hour.",
       variables: ["name", "reference"],
     },
     {
       key: "mk-meeting-confirm",
       department: "MARKETING" as Department,
-      name: "Consultation confirmed",
-      body: "Hi {{1}}, your consultation is confirmed for {{2}} at {{3}}. Reference: {{4}}.",
+      name: "Tasting session confirmed",
+      body: "Hi {{1}}, your cake tasting is confirmed for {{2}} at {{3}}. Reference: {{4}}.",
       variables: ["name", "date", "time", "reference"],
     },
     {
       key: "in-admission-ack",
       department: "INSTITUTE" as Department,
-      name: "Admission inquiry acknowledgement",
-      body: "Assalam-o-Alaikum {{1}}, your admission inquiry for {{2}} is registered ({{3}}). An admission officer will call you shortly.",
+      name: "Event inquiry acknowledgement",
+      body: "Assalam-o-Alaikum {{1}}, your event catering inquiry for {{2}} is registered ({{3}}). An event officer will call you shortly.",
       variables: ["name", "course", "reference"],
     },
     {
       key: "in-batch-reminder",
       department: "INSTITUTE" as Department,
-      name: "Batch starting reminder",
-      body: "Reminder: your {{1}} batch starts on {{2}}. Timings: {{3}}. Please confirm your seat.",
+      name: "Scheduled event reminder",
+      body: "Reminder: your {{1}} event starts on {{2}}. Timings: {{3}}. Please confirm final headcount.",
       variables: ["course", "startDate", "schedule"],
     },
     {
       key: "in-fee-reminder",
       department: "INSTITUTE" as Department,
-      name: "Fee instalment reminder",
-      body: "Hi {{1}}, your next fee instalment of {{2}} is due on {{3}}. Please visit the office or contact us to arrange payment.",
+      name: "Payment instalment reminder",
+      body: "Hi {{1}}, your event booking deposit of {{2}} is due on {{3}}. Please contact us to arrange payment.",
       variables: ["name", "amount", "dueDate"],
     },
   ];
@@ -639,13 +643,13 @@ async function seedContent() {
   const announcements = [
     {
       department: "MARKETING" as Department,
-      title: "AI automation packages now available",
-      body: "Bundle an AI chatbot with WhatsApp automation and save on the combined build. Ask the assistant for a quote.",
+      title: "Custom Birthday Cakes & Delivery Available",
+      body: "Order 24 hours in advance for custom fondant and theme cakes. Delivery available across Bahawal Nagar.",
     },
     {
       department: "INSTITUTE" as Department,
-      title: "Admissions open for the next batch",
-      body: "Seats are limited across all courses. Early-bird discounts apply before the registration deadline — start an admission inquiry to reserve yours.",
+      title: "Wedding Dessert Tables & Party Catering",
+      body: "Special event packages available for wedding receptions, engagements, and corporate events.",
     },
   ];
 
@@ -661,18 +665,18 @@ async function seedContent() {
 
   const events = [
     {
-      slug: "free-ai-freelancing-seminar",
+      slug: "free-cake-tasting-weekend",
       department: "INSTITUTE" as Department,
-      title: "Free seminar: Earning online with AI",
+      title: "Weekend Cake Tasting & Event Expo",
       summary:
-        "A free two-hour session on which AI skills are actually earning money right now, and how to get your first freelance client.",
-      location: "BITSOL Institute campus, Faisalabad",
+        "Sample our signature cake flavors and meet our master bakers to plan your wedding or special event.",
+      location: "Cakestry Bakery, Model Town, Bahawal Nagar",
       startsAt: eventStart,
     },
     {
       slug: "ai-for-business-workshop",
       department: "MARKETING" as Department,
-      title: "Workshop: AI automation for local businesses",
+      title: "Seasonal Dessert Specials Showcase",
       summary:
         "A hands-on workshop for business owners on automating customer replies, follow-ups and reporting.",
       location: "Online",

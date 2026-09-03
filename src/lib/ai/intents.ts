@@ -126,7 +126,7 @@ export function suggestFollowUps(
   message: string
 ): string[] {
   if (!department) {
-    return ["🏢 BITSOL Marketing", "🎓 BITSOL Institute"];
+    return ["🎂 Cakestry Bakery", "🧁 Cakestry Events"];
   }
 
   const text = normalise(message);

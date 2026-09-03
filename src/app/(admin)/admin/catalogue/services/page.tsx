@@ -50,9 +50,9 @@ export default async function ServicesPage() {
   return (
     <>
       <PageHeader
-        title="Services"
+        title="Bakery Products"
         department="MARKETING"
-        description="The BITSOL Marketing service catalogue the assistant answers from. Edits here change what customers are told."
+        description="The Cakestry Bakery product catalogue the assistant answers from. Edits here change what customers are told."
       />
 
       {error && <DbNotice error={error} />}

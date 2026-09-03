@@ -48,7 +48,7 @@ export default function NotFound() {
           }}
         >
           The link may be out of date. The assistant is still here and happy to help
-          with either BITSOL Marketing or BITSOL Institute.
+          with Cakestry Bakery cake orders and special events.
         </p>
 
         <div
@@ -92,7 +92,7 @@ export default function NotFound() {
         </div>
 
         <p style={{ marginTop: "2.5rem", fontSize: "0.6875rem", color: "rgba(255,255,255,0.5)" }}>
-          BITSOL AI Assistant
+          Cakestry AI Assistant
         </p>
       </div>
     </main>

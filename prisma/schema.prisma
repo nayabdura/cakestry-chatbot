@@ -1,12 +1,10 @@
 // =============================================================================
-//  BITSOL AI Assistant — Prisma schema
-//  Designed & Developed by BITSOL MARKETING
+//  Cakestry AI Assistant — Prisma schema
+//  Official database schema for Cakestry Bakery Bahawal Nagar
 //
-//  One database, two strictly separated businesses:
-//
-//    • BITSOL Marketing — leads, services, customers, projects, quotes
-//    • BITSOL Institute of Digital Media & AI — admissions, students, courses,
-//      faculty, batches, attendance, certificates
+//  Serves two divisions:
+//    • Cakestry Bakery & Custom Cakes — orders, products, customers, quotes
+//    • Cakestry Special Events — event bookings, clients, packages
 //
 //  Shared infrastructure (users, RBAC, conversations, tickets, notifications,
 //  settings, logs) carries a `department` column wherever a record belongs to
@@ -91,7 +89,7 @@ enum Priority {
   URGENT
 }
 
-/// BITSOL Marketing sales pipeline.
+/// Cakestry Bakery order pipeline.
 enum LeadStage {
   NEW
   CONTACTED
@@ -102,7 +100,7 @@ enum LeadStage {
   LOST
 }
 
-/// BITSOL Institute admissions pipeline.
+/// Cakestry Special Events inquiry pipeline.
 enum AdmissionStage {
   INQUIRY
   CONTACTED

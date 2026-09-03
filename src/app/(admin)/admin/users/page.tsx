@@ -39,7 +39,7 @@ export default async function UsersPage() {
       {error && <DbNotice error={error} />}
 
       <Callout title="Department scoping is enforced everywhere">
-        A user assigned to BITSOL Marketing cannot read or edit BITSOL Institute records, and vice
+        A user assigned to Cakestry Bakery cannot read or edit Cakestry Special Events records, and vice
         versa — the restriction is applied in the data layer, not just in the navigation. Leave
         the department blank only for staff who genuinely need both.
       </Callout>

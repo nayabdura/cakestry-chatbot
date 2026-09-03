@@ -4,11 +4,9 @@ import { cn } from "@/lib/utils";
 import { BRANDING, brandName, brandUrl } from "@/lib/branding";
 
 /**
- * Elegant, non-intrusive attribution to BITSOL MARKETING.
- * Rendered on the login screen, splash screen, footer, about page, admin panel,
- * docs and chat widget footer, per the brand guidelines.
+ * Brand attribution component for Cakestry Bakery.
  */
-export function BitsolBranding({
+export function CakestryBranding({
   className,
   variant = "line",
 }: {
@@ -23,7 +21,6 @@ export function BitsolBranding({
           {BRANDING.product.poweredBy}
         </span>
         <span className="text-xs text-muted-foreground">
-          {BRANDING.developer.attribution.split("BITSOL MARKETING")[0]}
           <Link
             href={brandUrl}
             target="_blank"
@@ -45,7 +42,7 @@ export function BitsolBranding({
       )}
     >
       <Sparkles className="size-3.5 text-accent" aria-hidden />
-      <span>Designed &amp; Developed by</span>
+      <span>Designed &amp; Developed for</span>
       <Link
         href={brandUrl}
         target="_blank"

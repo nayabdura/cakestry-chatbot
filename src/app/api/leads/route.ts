@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * BITSOL Marketing — lead capture.
+ * Cakestry Bakery — cake order lead capture.
  *
  * Collects the fields from the brief (name, company, phone, email, business,
  * budget, timeline, requirements), generates a lead reference, stores it in the

@@ -40,8 +40,8 @@ export default async function AdminDashboard() {
         title={`Welcome back, ${session.name.split(" ")[0]}`}
         description={
           department
-            ? `You're viewing ${department === "MARKETING" ? "BITSOL Marketing" : "BITSOL Institute"} data only.`
-            : "Live view across BITSOL Marketing and BITSOL Institute."
+            ? `You're viewing ${department === "MARKETING" ? "Cakestry Bakery" : "Cakestry Special Events"} data.`
+            : "Live view across Cakestry Bakery and Special Events."
         }
         actions={
           <Link
@@ -66,9 +66,9 @@ export default async function AdminDashboard() {
         />
         {showMarketing && (
           <StatCard
-            label="Marketing leads"
+            label="Cake Orders"
             value={stats.marketingLeads}
-            hint={`${stats.wonLeads} won`}
+            hint={`${stats.wonLeads} fulfilled`}
             icon={Briefcase}
             department="MARKETING"
             href="/admin/crm/leads"
@@ -76,9 +76,9 @@ export default async function AdminDashboard() {
         )}
         {showInstitute && (
           <StatCard
-            label="Admission inquiries"
+            label="Event Inquiries"
             value={stats.admissionLeads}
-            hint={`${stats.enrolledStudents} enrolled`}
+            hint={`${stats.enrolledStudents} booked`}
             icon={ClipboardList}
             department="INSTITUTE"
             href="/admin/crm/admissions"
@@ -86,9 +86,9 @@ export default async function AdminDashboard() {
         )}
         {showMarketing && (
           <StatCard
-            label="Won pipeline value"
+            label="Order Value"
             value={formatPkr(stats.revenue)}
-            hint="Sum of estimated value on won leads"
+            hint="Sum of fulfilled cake orders"
             icon={Wallet}
             department="MARKETING"
           />
@@ -104,14 +104,14 @@ export default async function AdminDashboard() {
           href="/admin/support/tickets"
         />
         <StatCard
-          label="Upcoming meetings"
+          label="Tastings / Meetings"
           value={stats.upcomingMeetings}
           icon={CalendarClock}
           href="/admin/meetings"
         />
         {showInstitute && (
           <StatCard
-            label="Upcoming batches"
+            label="Upcoming Events"
             value={stats.upcomingBatches}
             icon={CalendarDays}
             department="INSTITUTE"
@@ -119,9 +119,9 @@ export default async function AdminDashboard() {
           />
         )}
         <StatCard
-          label="Conversion rate"
+          label="Fulfillment rate"
           value={`${stats.conversionRate}%`}
-          hint="Won + enrolled ÷ total pipeline"
+          hint="Completed orders ÷ total inquiries"
           icon={TrendingUp}
           href="/admin/reports"
         />
@@ -131,31 +131,31 @@ export default async function AdminDashboard() {
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         {showMarketing && (
           <RankedList
-            title="Popular services"
+            title="Popular Cake Items"
             department="MARKETING"
             rows={stats.popularServices}
-            empty="No service requests captured yet."
+            empty="No cake order requests captured yet."
           />
         )}
         {showInstitute && (
           <RankedList
-            title="Popular courses"
+            title="Popular Packages"
             department="INSTITUTE"
             rows={stats.popularCourses}
-            empty="No course inquiries captured yet."
+            empty="No event inquiries captured yet."
           />
         )}
 
         <Card className="p-5">
           <div className="mb-3 flex items-center gap-2">
             <Star className="size-4 text-accent" />
-            <h2 className="text-sm font-semibold">Chat satisfaction</h2>
+            <h2 className="text-sm font-semibold">Customer satisfaction</h2>
           </div>
           {stats.satisfaction > 0 ? (
             <>
               <p className="text-3xl font-bold">{stats.satisfaction.toFixed(1)}<span className="text-base font-normal text-muted-foreground"> / 5</span></p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Average rating across rated conversations.
+                Average rating across completed orders.
               </p>
             </>
           ) : (
@@ -198,7 +198,7 @@ export default async function AdminDashboard() {
         ) : (
           <EmptyState
             message="No activity recorded yet."
-            hint="Leads, admissions, tickets and escalations appear here as they happen."
+            hint="Orders, event inquiries, tickets and escalations appear here as they happen."
           />
         )}
       </div>

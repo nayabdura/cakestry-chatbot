@@ -84,7 +84,7 @@ export default async function WhatsappInboxPage() {
     <>
       <PageHeader
         title="WhatsApp Inbox"
-        description="Everyone who has messaged the BITSOL WhatsApp number, and what their conversation turned into."
+        description="Everyone who has messaged the Cakestry Bakery WhatsApp number, and what their conversation turned into."
       />
 
       {error && <DbNotice error={error} />}

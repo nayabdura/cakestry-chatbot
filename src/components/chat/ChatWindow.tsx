@@ -16,7 +16,7 @@ import { detectLanguage, speechTagFor, t, type Language } from "@/lib/i18n";
 import { cn, generateConversationReference, shortId } from "@/lib/utils";
 import type { ChatAction, ChatMessage, ChatStreamEvent } from "@/types";
 
-const STORAGE_KEY = "bitsol.chat.v1";
+const STORAGE_KEY = "cakestry.chat.v1";
 
 interface PersistedState {
   reference: string;
@@ -24,22 +24,6 @@ interface PersistedState {
   messages: ChatMessage[];
 }
 
-/**
- * =============================================================================
- *  BITSOL AI Assistant — chat surface
- * =============================================================================
- *
- *  Owns the piece of state that makes this a dual-business assistant: the
- *  `department`. It is chosen from the welcome screen, inferred by the server
- *  router, or changed by the user at any time from the header — and it is sent
- *  with every request and persisted with the transcript, which is what gives
- *  the conversation memory across reloads.
- *
- *  Everything downstream (theme, menu, suggestions, quick replies, forms,
- *  avatars) derives from that one value, so no component holds a second,
- *  possibly stale, opinion about which business the user is talking to.
- * =============================================================================
- */
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [department, setDepartment] = useState<Department | null>(null);
@@ -54,7 +38,6 @@ export function ChatWindow() {
   const conversationRef = useRef<string>("");
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Mirrors `department` for use inside async callbacks without stale closures.
   const departmentRef = useRef<Department | null>(null);
 
   // ---------------------------------------------------------------- restore --
@@ -87,7 +70,7 @@ export function ChatWindow() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
-      // Quota or private-mode failure — the conversation still works in memory.
+      /* ignore */
     }
   }, [messages, department, hydrated]);
 
@@ -180,8 +163,6 @@ export function ChatWindow() {
             }
 
             if (event.type === "meta") {
-              // The server has routed this turn — adopt its decision so the UI
-              // re-themes and the menu switches while the answer streams in.
               if (event.department && event.department !== departmentRef.current) {
                 departmentRef.current = event.department;
                 setDepartment(event.department);
@@ -273,7 +254,6 @@ export function ChatWindow() {
     }
   }
 
-  /** Append a system-authored confirmation (form submitted, etc.). */
   function appendAssistant(content: string) {
     setMessages((prev) => [
       ...prev,
@@ -341,7 +321,7 @@ export function ChatWindow() {
               onClick={switchDepartment}
               disabled={streaming}
               title={`Switch to ${
-                department === "MARKETING" ? "BITSOL Institute" : "BITSOL Marketing"
+                department === "MARKETING" ? "Cakestry Events" : "Cakestry Bakery"
               }`}
             >
               <Repeat className="size-4" />
@@ -380,8 +360,8 @@ export function ChatWindow() {
                 pickDepartment(next);
                 void send(
                   next === "MARKETING"
-                    ? "I'm interested in BITSOL Marketing services."
-                    : "I'm interested in BITSOL Institute courses and admissions.",
+                    ? "I'm interested in Cakestry Bakery cakes and pastries."
+                    : "I'm interested in Cakestry Special Events catering & gift boxes.",
                   next
                 );
               }}

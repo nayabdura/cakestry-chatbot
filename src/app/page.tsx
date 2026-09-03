@@ -2,8 +2,8 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bot,
-  Building2,
-  GraduationCap,
+  Cake,
+  Gift,
   Languages,
   MessagesSquare,
   ShieldCheck,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { SplashScreen } from "@/components/splash/SplashScreen";
 import { Footer } from "@/components/branding/Footer";
-import { BitsolBranding } from "@/components/branding/BitsolBranding";
+import { CakestryBranding } from "@/components/branding/CakestryBranding";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BRANDING } from "@/lib/branding";
@@ -22,23 +22,23 @@ import { INSTITUTE_COURSES } from "@/data/institute/courses";
 const CAPABILITIES = [
   {
     icon: Workflow,
-    title: "Knows which door you need",
-    body: "The assistant works out whether you're here for BITSOL Marketing services or BITSOL Institute admissions — and remembers it for the rest of the conversation.",
+    title: "Instant Cake & Event Guidance",
+    body: "The assistant helps you choose custom cakes or event catering packages tailored to your budget and guest count.",
   },
   {
     icon: Languages,
-    title: "Four languages, one conversation",
-    body: "English, Urdu, Roman Urdu and Punjabi — it replies in whichever you write in, and switches with you mid-chat.",
+    title: "Multi-Language Support",
+    body: "English, Urdu, Roman Urdu and Punjabi — order your cake in whichever language you feel most comfortable.",
   },
   {
     icon: MessagesSquare,
-    title: "Does more than answer",
-    body: "Capture a lead, request a quote, book a consultation, start an admission inquiry or raise a support ticket — each with its own reference number.",
+    title: "Instant Order & Booking Capture",
+    body: "Place a custom cake order, book an event tasting session, or submit a support inquiry with an instant reference ID.",
   },
   {
     icon: ShieldCheck,
-    title: "Answers from BITSOL's own content",
-    body: "Every reply is grounded in an approved knowledge base per business, so information is never mixed between the two.",
+    title: "Official Bakery Information",
+    body: "Every response is grounded in Cakestry Bakery's official products, flavor lists, pricing, and delivery areas.",
   },
 ];
 
@@ -53,7 +53,7 @@ export default function HomePage() {
           <div className="container flex h-16 items-center justify-between">
             <Link href="/" className="flex items-center gap-2.5">
               <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
-                <Bot className="size-5" />
+                <Cake className="size-5" />
               </span>
               <span className="flex flex-col leading-none">
                 <span className="text-sm font-bold">{BRANDING.product.name}</span>
@@ -65,12 +65,12 @@ export default function HomePage() {
             <div className="flex items-center gap-2">
               <Link href="/login">
                 <Button variant="ghost" size="sm">
-                  Sign in
+                  Staff Sign in
                 </Button>
               </Link>
               <Link href="/chat">
-                <Button size="sm" className="gap-1.5">
-                  Open Assistant <ArrowRight className="size-4" />
+                <Button size="sm" className="gap-1.5 bg-orange-600 hover:bg-orange-700">
+                  Order Now <ArrowRight className="size-4" />
                 </Button>
               </Link>
             </div>
@@ -78,32 +78,30 @@ export default function HomePage() {
         </header>
 
         {/* Hero */}
-        <section className="brand-gradient relative overflow-hidden text-white">
+        <section className="bg-gradient-to-r from-orange-700 via-orange-800 to-amber-900 relative overflow-hidden text-white">
           <div className="container grid gap-10 py-20 md:grid-cols-2 md:py-28">
             <div className="flex flex-col justify-center gap-6">
               <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/20">
                 <span className="size-2 animate-pulse rounded-full bg-white/80" />
-                24/7 · {BRANDING.product.poweredBy}
+                Bahawal Nagar · {BRANDING.product.poweredBy}
               </span>
               <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-5xl">
-                Two businesses.
+                Delicious Custom Cakes.
                 <br />
-                <span className="text-white/70">One AI assistant.</span>
+                <span className="text-white/80">Crafted with Love.</span>
               </h1>
               <p className="max-w-md text-white/80">
-                Ask about services, pricing, quotes and consultations for{" "}
-                <strong className="font-semibold text-white">BITSOL Marketing</strong> — or
-                courses, admissions, fees and career guidance for{" "}
-                <strong className="font-semibold text-white">BITSOL Institute</strong>. In
-                English, Urdu, Roman Urdu or Punjabi.
+                Order custom birthday cakes, wedding cakes, pastries, and party dessert tables from{" "}
+                <strong className="font-semibold text-white">Cakestry Bakery Bahawal Nagar</strong>.
+                Fast local delivery in Model Town and across Bahawal Nagar!
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <Link href="/chat">
                   <Button
                     size="lg"
-                    className="gap-2 bg-white text-primary hover:bg-white/90"
+                    className="gap-2 bg-white text-orange-800 hover:bg-white/90"
                   >
-                    <MessagesSquare className="size-5" /> Start a conversation
+                    <MessagesSquare className="size-5" /> Start Order Chat
                   </Button>
                 </Link>
                 <Link href="/about">
@@ -112,7 +110,7 @@ export default function HomePage() {
                     size="lg"
                     className="border-white/30 bg-white/5 text-white hover:bg-white/15 hover:text-white"
                   >
-                    Learn more
+                    About Us
                   </Button>
                 </Link>
               </div>
@@ -122,33 +120,33 @@ export default function HomePage() {
             <div className="flex items-center justify-center">
               <Card className="glass w-full max-w-sm border-white/20 p-5 text-foreground">
                 <div className="flex items-center gap-2 border-b pb-3">
-                  <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
+                  <span className="grid size-8 place-items-center rounded-lg bg-orange-600 text-white">
                     <Bot className="size-4" />
                   </span>
                   <span className="text-sm font-semibold">
                     {BRANDING.product.shortName}
                   </span>
-                  <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-accent">
-                    <span className="size-2 rounded-full bg-accent" /> online
+                  <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-emerald-600">
+                    <span className="size-2 rounded-full bg-emerald-500" /> online
                   </span>
                 </div>
                 <div className="space-y-3 py-4 text-sm">
                   <p className="w-fit max-w-[92%] rounded-2xl rounded-bl-md bg-secondary px-3 py-2">
-                    👋 Welcome to BITSOL. Please choose how I can assist you today.
+                    👋 Welcome to Cakestry Bakery! How can I help with your cake order today?
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <span className="rounded-full border bg-background px-3 py-1 text-xs">
-                      🏢 BITSOL Marketing
+                      🎂 Custom Bakery Cakes
                     </span>
                     <span className="rounded-full border bg-background px-3 py-1 text-xs">
-                      🎓 BITSOL Institute
+                      🧁 Special Events & Gift Boxes
                     </span>
                   </div>
-                  <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3 py-2 text-primary-foreground">
-                    Mujhe SEO course ki fees chahiye
+                  <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md bg-orange-600 px-3 py-2 text-white">
+                    Mujhe 2 pound chocolate fudge birthday cake order karna hai
                   </p>
                   <p className="w-fit max-w-[92%] rounded-2xl rounded-bl-md bg-secondary px-3 py-2">
-                    SEO course 2 mahine ka hai, fees PKR 30,000 se shuru…
+                    Cakestry 2-Pound Chocolate Fudge Cake PKR 2,500 se shuru hota hai. Name text aur delivery address bataen…
                   </p>
                 </div>
               </Card>
@@ -156,27 +154,27 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* The two businesses */}
+        {/* The two divisions */}
         <section className="container py-16 md:py-24">
           <div className="mx-auto mb-12 max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">Pick your side of BITSOL</h2>
+            <h2 className="text-3xl font-bold tracking-tight">Our Bakery Services</h2>
             <p className="mt-3 text-muted-foreground">
-              The assistant routes you automatically — but here's what sits behind each door.
+              Select what you need or let our AI assistant guide you to the perfect order.
             </p>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <BusinessCard
               department="MARKETING"
-              icon={Building2}
-              items={MARKETING_SERVICES.slice(0, 8).map((s) => s.name)}
-              footer={`${MARKETING_SERVICES.length} services`}
+              icon={Cake}
+              items={MARKETING_SERVICES.map((s) => s.name)}
+              footer={`${MARKETING_SERVICES.length} items`}
             />
             <BusinessCard
               department="INSTITUTE"
-              icon={GraduationCap}
-              items={INSTITUTE_COURSES.slice(0, 8).map((c) => c.name)}
-              footer={`${INSTITUTE_COURSES.length} courses`}
+              icon={Gift}
+              items={INSTITUTE_COURSES.map((c) => c.name)}
+              footer={`${INSTITUTE_COURSES.length} packages`}
             />
           </div>
         </section>
@@ -186,13 +184,13 @@ export default function HomePage() {
           <div className="container">
             <div className="mx-auto mb-12 max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight">
-                Built to do the work, not just chat
+                Designed for Easy Ordering
               </h2>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {CAPABILITIES.map((capability) => (
                 <Card key={capability.title} className="animate-fade-in-up p-5">
-                  <span className="mb-4 inline-grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <span className="mb-4 inline-grid size-11 place-items-center rounded-xl bg-orange-100 text-orange-700">
                     <capability.icon className="size-5" />
                   </span>
                   <h3 className="text-sm font-semibold">{capability.title}</h3>
@@ -209,14 +207,14 @@ export default function HomePage() {
         <section className="container py-16 md:py-20">
           <div className="flex flex-col items-center gap-4 text-center">
             <h2 className="text-2xl font-bold tracking-tight">
-              Ready when you are — day or night.
+              Order Fresh Cakes Anytime in Bahawal Nagar
             </h2>
             <Link href="/chat">
-              <Button size="lg" className="gap-2">
-                Open the assistant <ArrowRight className="size-5" />
+              <Button size="lg" className="gap-2 bg-orange-600 hover:bg-orange-700">
+                Order Online Now <ArrowRight className="size-5" />
               </Button>
             </Link>
-            <BitsolBranding />
+            <CakestryBranding />
           </div>
         </section>
 
@@ -233,7 +231,7 @@ function BusinessCard({
   footer,
 }: {
   department: "MARKETING" | "INSTITUTE";
-  icon: typeof Building2;
+  icon: typeof Cake;
   items: string[];
   footer: string;
 }) {
@@ -244,7 +242,7 @@ function BusinessCard({
       data-department={department}
       className="flex flex-col overflow-hidden p-0 transition-shadow hover:shadow-glow"
     >
-      <div className="brand-gradient p-6 text-white">
+      <div className="bg-gradient-to-r from-orange-600 to-amber-700 p-6 text-white">
         <span className="mb-3 inline-grid size-12 place-items-center rounded-xl bg-white/15 ring-1 ring-white/25">
           <Icon className="size-6" />
         </span>
@@ -277,8 +275,8 @@ function BusinessCard({
             <p className="break-all">{brand.contact.email}</p>
           </div>
           <Link href="/chat">
-            <Button size="sm" className="gap-1.5">
-              Chat <ArrowRight className="size-4" />
+            <Button size="sm" className="gap-1.5 bg-orange-600 hover:bg-orange-700">
+              Order Chat <ArrowRight className="size-4" />
             </Button>
           </Link>
         </div>

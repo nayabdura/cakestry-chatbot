@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BRANDING, brandTagline } from "@/lib/branding";
 import { BRANDS } from "@/lib/brands";
-import { BitsolBranding } from "./BitsolBranding";
+import { CakestryBranding } from "./CakestryBranding";
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -44,7 +44,7 @@ export function Footer() {
             <Link href="/login" className="hover:text-primary">Staff sign in</Link>
           </nav>
           <div className="text-center md:text-right">
-            <BitsolBranding className="justify-center md:justify-end" />
+            <CakestryBranding className="justify-center md:justify-end" />
             <p className="mt-1 text-[11px] text-muted-foreground/80">{brandTagline}</p>
           </div>
         </div>

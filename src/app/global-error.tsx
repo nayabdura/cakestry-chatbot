@@ -47,7 +47,7 @@ export default function GlobalError({
               color: "rgba(255,255,255,0.75)",
             }}
           >
-            The BITSOL AI Assistant hit an unexpected error. Please try again — if it
+            The Cakestry AI Assistant hit an unexpected error. Please try again — if it
             keeps happening, contact us and we&apos;ll look into it.
           </p>
 

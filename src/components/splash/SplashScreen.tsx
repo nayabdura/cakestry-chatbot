@@ -2,15 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bot, Sparkles } from "lucide-react";
+import { Cake, Sparkles } from "lucide-react";
 import { BRANDING, brandName } from "@/lib/branding";
 import { BRANDS } from "@/lib/brands";
 
-/**
- * Branded splash overlay shown briefly on first load, then fades to reveal the
- * page. Shows the BITSOL umbrella identity and both businesses, since the
- * visitor has not yet chosen between them.
- */
 export function SplashScreen({ duration = 2000 }: { duration?: number }) {
   const [visible, setVisible] = useState(true);
 
@@ -26,7 +21,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6 }}
-          className="brand-gradient fixed inset-0 z-[100] flex flex-col items-center justify-center text-white"
+          className="bg-gradient-to-r from-orange-700 via-orange-800 to-amber-900 fixed inset-0 z-[100] flex flex-col items-center justify-center text-white"
         >
           <motion.div
             initial={{ scale: 0.85, opacity: 0 }}
@@ -37,7 +32,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
             <div className="relative">
               <span className="absolute inset-0 animate-ping rounded-full bg-white/20" />
               <div className="relative grid size-20 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/30 backdrop-blur-md">
-                <Bot className="size-10" />
+                <Cake className="size-10 text-white" />
               </div>
             </div>
 
@@ -63,7 +58,7 @@ export function SplashScreen({ duration = 2000 }: { duration?: number }) {
               <Sparkles className="size-3.5" /> {BRANDING.product.poweredBy}
             </span>
             <span>
-              Designed &amp; Developed by{" "}
+              Designed &amp; Developed for{" "}
               <span className="font-semibold text-white">{brandName}</span>
             </span>
           </motion.div>

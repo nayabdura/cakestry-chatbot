@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         if (ticketId && department) {
           const brand = BRANDS[department];
           const note = `\n\n🎫 I've created ticket **${ticketId}** and passed this to the ${
-            department === "MARKETING" ? "BITSOL Marketing team" : "BITSOL Institute admissions team"
+            department === "MARKETING" ? "Cakestry Bakery team" : "Cakestry Special Events team"
           }. Keep this reference for follow-up — you can also reach them on ${brand.contact.phone}.`;
           assistantText += note;
           controller.enqueue(encoder.encode(sse({ type: "chunk", text: note })));
@@ -231,7 +231,7 @@ async function persist(opts: {
         reference: ticketId,
         department,
         category: "GENERAL",
-        subject: "Escalated from the BITSOL AI Assistant",
+        subject: "Escalated from the Cakestry AI Assistant",
         description: userText,
         conversationId: conversation.id,
       },

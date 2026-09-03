@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * BITSOL Institute — admission inquiry.
+ * Cakestry Special Events — event catering inquiry.
  *
  * Collects the fields from the brief (student name, father name, phone,
  * WhatsApp, email, qualification, city, interested course, preferred batch),

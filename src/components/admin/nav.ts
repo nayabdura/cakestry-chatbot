@@ -3,7 +3,7 @@ import {
   BookOpen,
   Boxes,
   Briefcase,
-  Building2,
+  Cake,
   CalendarClock,
   CalendarDays,
   ClipboardList,
@@ -11,7 +11,7 @@ import {
   FileText,
   FolderKanban,
   GaugeCircle,
-  GraduationCap,
+  Gift,
   Images,
   LayoutDashboard,
   LifeBuoy,
@@ -32,14 +32,7 @@ import type { LucideIcon } from "lucide-react";
 import type { Department } from "@/lib/brands";
 
 /**
- * Admin console navigation.
- *
- * `department` on an item scopes it to one business: staff assigned to BITSOL
- * Marketing never see the admissions pipeline, and Institute staff never see
- * the sales pipeline. Items without a department are shared infrastructure.
- *
- * `permission` names the RBAC capability required. Admin and Super Admin pass
- * everything; other roles are filtered against their granted permissions.
+ * Admin console navigation for Cakestry Bakery.
  */
 export interface NavItem {
   label: string;
@@ -47,7 +40,6 @@ export interface NavItem {
   icon: LucideIcon;
   department?: Department;
   permission?: string;
-  /** Shown as a small pill, e.g. live counts injected by the shell. */
   badgeKey?: "openTickets" | "newLeads" | "newAdmissions";
 }
 
@@ -70,10 +62,10 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
-    label: "CRM",
+    label: "Bakery Orders & CRM",
     items: [
       {
-        label: "Marketing Leads",
+        label: "Cake Orders",
         href: "/admin/crm/leads",
         icon: Briefcase,
         department: "MARKETING",
@@ -81,7 +73,7 @@ export const ADMIN_NAV: NavGroup[] = [
         badgeKey: "newLeads",
       },
       {
-        label: "Admission Inquiries",
+        label: "Event Inquiries",
         href: "/admin/crm/admissions",
         icon: ClipboardList,
         department: "INSTITUTE",
@@ -96,7 +88,7 @@ export const ADMIN_NAV: NavGroup[] = [
         permission: "customers.manage",
       },
       {
-        label: "Students",
+        label: "Event Clients",
         href: "/admin/crm/students",
         icon: UsersRound,
         department: "INSTITUTE",
@@ -111,45 +103,45 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
-    label: "Catalogue",
+    label: "Catalogue & Menu",
     items: [
       {
-        label: "Services",
+        label: "Bakery Products",
         href: "/admin/catalogue/services",
         icon: Boxes,
         department: "MARKETING",
         permission: "services.manage",
       },
       {
-        label: "Projects",
+        label: "Custom Orders",
         href: "/admin/catalogue/projects",
         icon: FolderKanban,
         department: "MARKETING",
         permission: "customers.manage",
       },
       {
-        label: "Portfolio",
+        label: "Gallery Portfolio",
         href: "/admin/catalogue/portfolio",
         icon: Images,
         department: "MARKETING",
         permission: "portfolio.manage",
       },
       {
-        label: "Courses",
+        label: "Event Packages",
         href: "/admin/catalogue/courses",
-        icon: GraduationCap,
+        icon: Gift,
         department: "INSTITUTE",
         permission: "courses.manage",
       },
       {
-        label: "Batches",
+        label: "Scheduled Events",
         href: "/admin/catalogue/batches",
         icon: CalendarDays,
         department: "INSTITUTE",
         permission: "courses.manage",
       },
       {
-        label: "Faculty",
+        label: "Bakery Staff",
         href: "/admin/catalogue/faculty",
         icon: Users,
         department: "INSTITUTE",
@@ -166,9 +158,9 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: BookOpen,
         permission: "knowledge.view",
       },
-      { label: "Media & Documents", href: "/admin/media", icon: FileText, permission: "knowledge.manage" },
-      { label: "Events", href: "/admin/events", icon: CalendarDays, permission: "knowledge.manage" },
-      { label: "AI Training", href: "/admin/ai-training", icon: Sparkles, permission: "knowledge.publish" },
+      { label: "Media & Photos", href: "/admin/media", icon: FileText, permission: "knowledge.manage" },
+      { label: "Special Offers", href: "/admin/events", icon: CalendarDays, permission: "knowledge.manage" },
+      { label: "AI Retraining", href: "/admin/ai-training", icon: Sparkles, permission: "knowledge.publish" },
     ],
   },
   {
@@ -181,9 +173,9 @@ export const ADMIN_NAV: NavGroup[] = [
         permission: "tickets.view",
         badgeKey: "openTickets",
       },
-      { label: "Meetings", href: "/admin/meetings", icon: CalendarClock, permission: "meetings.manage" },
+      { label: "Tastings & Meetings", href: "/admin/meetings", icon: CalendarClock, permission: "meetings.manage" },
       {
-        label: "Quotations",
+        label: "Order Quotations",
         href: "/admin/quotes",
         icon: ReceiptText,
         department: "MARKETING",
@@ -216,33 +208,23 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
-    label: "Insights",
+    label: "Developer & Admin",
     items: [
       { label: "Reports & Analytics", href: "/admin/reports", icon: GaugeCircle, permission: "reports.view" },
-    ],
-  },
-  {
-    label: "Administration",
-    items: [
-      { label: "Users", href: "/admin/users", icon: Users, permission: "users.manage" },
+      { label: "User Management", href: "/admin/users", icon: Users, permission: "users.manage" },
       { label: "Roles & Permissions", href: "/admin/roles", icon: ShieldCheck, permission: "users.manage" },
-      { label: "Settings", href: "/admin/settings", icon: Settings, permission: "settings.manage" },
-      { label: "Integrations", href: "/admin/integrations", icon: Plug, permission: "settings.manage" },
-      { label: "System Logs", href: "/admin/logs", icon: ScrollText, permission: "logs.view" },
+      { label: "System Settings", href: "/admin/settings", icon: Settings, permission: "settings.manage" },
+      { label: "Integrations & APIs", href: "/admin/integrations", icon: Plug, permission: "settings.manage" },
+      { label: "Developer Logs", href: "/admin/logs", icon: ScrollText, permission: "logs.view" },
     ],
   },
 ];
 
-/** Department icons reused across the console. */
 export const DEPARTMENT_ICON: Record<Department, LucideIcon> = {
-  MARKETING: Building2,
-  INSTITUTE: GraduationCap,
+  MARKETING: Cake,
+  INSTITUTE: Gift,
 };
 
-/**
- * Filter navigation for a session: department-scoped staff only see their own
- * business's modules, and items are hidden when the role lacks the permission.
- */
 export function visibleNav(
   department: Department | null | undefined,
   permissions: Set<string> | null

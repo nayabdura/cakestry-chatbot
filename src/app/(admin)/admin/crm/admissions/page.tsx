@@ -15,7 +15,7 @@ import {
 import { StatusSelect } from "@/components/admin/StatusSelect";
 import { formatDate, humanise } from "@/lib/utils";
 
-export const metadata = { title: "Admission Inquiries" };
+export const metadata = { title: "Event Inquiries" };
 
 const STAGES: AdmissionStage[] = [
   "INQUIRY", "CONTACTED", "COUNSELLED", "APPLIED",
@@ -100,9 +100,9 @@ export default async function AdmissionsPage({
   return (
     <>
       <PageHeader
-        title="Admission Inquiries"
+        title="Event Inquiries"
         department="INSTITUTE"
-        description="Every prospective student captured by the assistant, WhatsApp, walk-ins and referrals — moved through the BITSOL Institute admissions pipeline."
+        description="Every prospective event booking captured by the assistant, WhatsApp, walk-ins and referrals — managed through the Cakestry Special Events pipeline."
       />
 
       {error && <DbNotice error={error} />}

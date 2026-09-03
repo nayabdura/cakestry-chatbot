@@ -5,26 +5,24 @@ import { BRANDS } from "@/lib/brands";
 
 export const metadata: Metadata = {
   title: {
-    default: `${BRANDING.product.name} · ${BRANDS.MARKETING.shortName} & ${BRANDS.INSTITUTE.shortName}`,
+    default: `${BRANDING.product.name} · ${BRANDS.MARKETING.shortName}`,
     template: `%s · ${BRANDING.product.shortName}`,
   },
   description:
-    "One AI assistant for BITSOL Marketing and BITSOL Institute of Digital Media & Artificial Intelligence — services, quotes and consultations for businesses; courses, admissions, fees and career guidance for students. English, Urdu, Roman Urdu and Punjabi.",
+    "Official AI Customer Assistant for Cakestry Bakery Bahawal Nagar — Custom birthday cakes, wedding cakes, fresh pastries, dessert catering, and doorstep delivery in Bahawal Nagar.",
   applicationName: BRANDING.product.name,
   authors: [{ name: BRANDING.developer.name, url: BRANDING.developer.url }],
   keywords: [
-    "BITSOL",
-    "BITSOL Marketing",
-    "BITSOL Institute",
-    "AI chatbot",
-    "WhatsApp automation",
-    "digital marketing",
-    "SEO",
-    "web development",
-    "digital marketing course",
-    "AI course",
-    "admission",
-    "Faisalabad",
+    "Cakestry Bakery",
+    "Cakestry Bahawal Nagar",
+    "Bakery Bahawal Nagar",
+    "Custom Cakes",
+    "Birthday Cake",
+    "Wedding Cake",
+    "Fondant Cake",
+    "Pastries",
+    "Cake Delivery",
+    "Bahawal Nagar",
   ],
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   openGraph: {
@@ -37,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1e2a78",
+  themeColor: "#ea580c",
   width: "device-width",
   initialScale: 1,
 };

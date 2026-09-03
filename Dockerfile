@@ -1,7 +1,5 @@
 # =============================================================================
-#  BITSOL AI Assistant — Production Dockerfile
-#  Multi-stage build producing a lean Next.js standalone server.
-#  Designed & Developed by BITSOL MARKETING
+#  Cakestry AI Assistant — Production Dockerfile
 # =============================================================================
 
 # ---- 1. Dependencies -------------------------------------------------------

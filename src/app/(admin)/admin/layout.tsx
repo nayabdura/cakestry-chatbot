@@ -5,7 +5,7 @@ import { loadPermissions, navCounts, sessionDepartment } from "@/lib/admin/queri
 import type { Department } from "@/lib/brands";
 
 export const metadata: Metadata = {
-  title: { default: "Admin", template: "%s · BITSOL Admin" },
+  title: { default: "Admin", template: "%s · Cakestry Admin" },
   robots: { index: false, follow: false },
 };
 
@@ -34,8 +34,6 @@ export default async function AdminLayout({
         role: session.role,
         department: department as Department | null,
       }}
-      // Only serializable values cross into the client component — the nav
-      // tree is built there, since each item carries a Lucide icon function.
       permissions={permissions ? [...permissions] : null}
       badges={badges}
     >

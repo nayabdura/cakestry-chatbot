@@ -16,7 +16,7 @@ export { detectAction, shouldEscalate, suggestFollowUps } from "./intents";
 
 /**
  * Resolve the configured AI provider. Selection is driven by AI_PROVIDER so
- * BITSOL can move between Claude, an OpenAI-compatible API, a local Ollama
+ * Cakestry AI Assistant provider resolver. Selection is driven by AI_PROVIDER so
  * model, or Gemini without any code change.
  */
 export function getProvider(): AIProvider {

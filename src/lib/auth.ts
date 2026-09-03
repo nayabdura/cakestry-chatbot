@@ -11,7 +11,7 @@ import type { Department, UserRole } from "@prisma/client";
 
 const secret = new TextEncoder().encode(config.jwt.secret);
 
-const ISSUER = "bitsol-ai-assistant";
+const ISSUER = "cakestry-ai-assistant";
 
 export interface SessionPayload {
   sub: string; // user id
@@ -79,4 +79,4 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
 }
 
 /** Name of the httpOnly cookie carrying the session token. */
-export const SESSION_COOKIE = "bitsol_session";
+export const SESSION_COOKIE = "cakestry_session";

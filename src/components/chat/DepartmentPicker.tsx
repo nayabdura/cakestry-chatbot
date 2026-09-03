@@ -1,22 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Building2, GraduationCap } from "lucide-react";
+import { ArrowRight, Cake, Gift } from "lucide-react";
 import { BRANDS, type Department } from "@/lib/brands";
 import { t, type Language } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-/**
- * The welcome screen from the brief:
- *
- *   👋 Welcome to BITSOL.
- *   Please choose how I can assist you today.
- *   🏢 BITSOL Marketing   🎓 BITSOL Institute
- *
- * Choosing pins the department for the rest of the conversation (the user can
- * still switch at any time from the chat header). Each card previews its own
- * brand colours so the choice feels like walking through the right door.
- */
 export function DepartmentPicker({
   onPick,
   language = "en",
@@ -28,19 +17,19 @@ export function DepartmentPicker({
 }) {
   const options: Array<{
     department: Department;
-    icon: typeof Building2;
+    icon: typeof Cake;
     label: string;
     hint: string;
   }> = [
     {
       department: "MARKETING",
-      icon: Building2,
+      icon: Cake,
       label: t("welcome.marketing", language),
       hint: t("welcome.marketingHint", language),
     },
     {
       department: "INSTITUTE",
-      icon: GraduationCap,
+      icon: Gift,
       label: t("welcome.institute", language),
       hint: t("welcome.instituteHint", language),
     },
@@ -85,7 +74,7 @@ export function DepartmentPicker({
                 className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-primary"
                 aria-hidden
               />
-              <span className="mb-3 inline-grid size-12 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+              <span className="mb-3 inline-grid size-12 place-items-center rounded-xl bg-orange-100 text-orange-700 transition-colors group-hover:bg-orange-600 group-hover:text-white">
                 <option.icon className="size-6" />
               </span>
 
@@ -97,7 +86,7 @@ export function DepartmentPicker({
                 {option.hint}
               </span>
 
-              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-primary">
+              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-orange-700">
                 Continue
                 <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
               </span>

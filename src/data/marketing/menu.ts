@@ -2,112 +2,89 @@ import type { MenuEntry } from "@/types";
 import { MARKETING_SERVICES } from "./services";
 
 /**
- * BITSOL Marketing conversation menu.
- *
- * Rendered in the chat menu panel and used as the model's map of what it can
- * do. Leaf entries either send a prompt (the model answers from the knowledge
- * base) or open a structured workflow (`action`) so multi-field capture happens
- * in a form rather than across nine conversational turns.
+ * Cakestry Bakery conversation menu.
  */
 export const MARKETING_MENU: MenuEntry[] = [
   {
     id: "mk-about",
-    label: "About BITSOL Marketing",
-    labelUr: "بِٹسول مارکیٹنگ کے بارے میں",
-    prompt: "Tell me about BITSOL Marketing — who you are and what you do.",
+    label: "About Cakestry Bakery",
+    labelUr: "کیکسٹری بیکری کے بارے میں",
+    prompt: "Tell me about Cakestry Bakery — who you are and what you do.",
   },
   {
     id: "mk-services",
-    label: "Our Services",
-    labelUr: "ہماری خدمات",
-    prompt: "What services does BITSOL Marketing offer?",
+    label: "Cake Menu & Items",
+    labelUr: "کیک مینو اور آئٹمز",
+    prompt: "What cakes and bakery items does Cakestry Bakery offer?",
     children: MARKETING_SERVICES.map((service) => ({
       id: `mk-service-${service.slug}`,
       label: service.name,
       labelUr: service.name,
-      prompt: `Tell me about ${service.name} — overview, benefits, features, process, pricing, portfolio and FAQs.`,
+      prompt: `Tell me about ${service.name} — overview, flavor list, pricing and delivery details.`,
     })),
   },
   {
-    id: "mk-portfolio",
-    label: "Portfolio",
-    labelUr: "ہمارا کام",
-    prompt: "Show me your portfolio and case studies.",
-  },
-  {
     id: "mk-reviews",
-    label: "Client Reviews",
-    labelUr: "کلائنٹ کی رائے",
-    prompt: "What do your clients say about working with BITSOL Marketing?",
+    label: "Customer Reviews",
+    labelUr: "کسٹمرز کی رائے",
+    prompt: "What do your customers say about Cakestry Bakery?",
   },
   {
     id: "mk-quote",
-    label: "Request Quote",
-    labelUr: "قیمت معلوم کریں",
-    prompt: "I'd like to request a quote.",
+    label: "Order Custom Cake",
+    labelUr: "کیک آرڈر کریں",
+    prompt: "I'd like to place a custom cake order.",
     action: { kind: "QUOTE_FORM" },
   },
   {
     id: "mk-consultation",
-    label: "Book Consultation",
-    labelUr: "مشاورت بُک کریں",
-    prompt: "I'd like to book a free consultation.",
+    label: "Book Tasting Session",
+    labelUr: "ٹیسٹنگ بُک کریں",
+    prompt: "I'd like to book a free cake tasting session.",
     action: { kind: "MEETING_FORM" },
   },
   {
     id: "mk-support",
-    label: "Support",
-    labelUr: "سپورٹ",
-    prompt: "I need support with an existing project.",
+    label: "Order Support",
+    labelUr: "آرڈر سپورٹ",
+    prompt: "I need support with an existing order.",
     action: { kind: "SUPPORT_FORM" },
   },
   {
     id: "mk-contact",
-    label: "Contact",
-    labelUr: "رابطہ",
-    prompt: "How can I contact BITSOL Marketing?",
+    label: "Contact & Location",
+    labelUr: "رابطہ اور لوکیشن",
+    prompt: "How can I contact Cakestry Bakery or visit the store?",
   },
 ];
 
-/** Empty-state suggestions for a new BITSOL Marketing conversation. */
 export const MARKETING_SUGGESTIONS = [
   {
-    title: "Build an AI chatbot",
-    titleUr: "اے آئی چیٹ بوٹ بنوائیں",
-    prompt: "I want an AI chatbot for my business. How does it work and what does it cost?",
+    title: "Order Birthday Cake",
+    titleUr: "سالگرہ کا کیک آرڈر کریں",
+    prompt: "I want to order a custom birthday cake. What flavors are available?",
   },
   {
-    title: "WhatsApp automation",
-    titleUr: "واٹس ایپ آٹومیشن",
-    prompt: "Tell me about WhatsApp automation for my business.",
+    title: "Wedding Tiered Cakes",
+    titleUr: "ویڈنگ کیکس",
+    prompt: "Tell me about wedding cake designs and pricing.",
   },
   {
-    title: "Get more customers",
-    titleUr: "زیادہ کسٹمرز حاصل کریں",
-    prompt: "I want more customers from digital marketing. Where should I start?",
+    title: "Pastry Slices & Brownies",
+    titleUr: "پیسٹریز اور براؤنیز",
+    prompt: "What fresh pastries and brownie boxes do you have today?",
   },
   {
-    title: "Build a website",
-    titleUr: "ویب سائٹ بنوائیں",
-    prompt: "I need a website for my business. What's the process and pricing?",
-  },
-  {
-    title: "Request a quote",
-    titleUr: "قیمت درکار ہے",
-    prompt: "I'd like to request a quote for a project.",
-  },
-  {
-    title: "Book a free consultation",
-    titleUr: "مفت مشاورت بُک کریں",
-    prompt: "I'd like to book a free consultation with your team.",
+    title: "Delivery Areas",
+    titleUr: "ڈیلیوری کی تفصیلات",
+    prompt: "Do you deliver cakes in Bahawal Nagar?",
   },
 ];
 
-/** Quick-reply chips shown under the composer in a Marketing conversation. */
 export const MARKETING_QUICK_REPLIES = [
-  "Pricing",
-  "Portfolio",
-  "Request a quote",
-  "Book a consultation",
+  "Cake Prices",
+  "Order Custom Cake",
+  "Flavors Available",
+  "Bahawal Nagar Delivery",
   "اردو میں بتائیں",
 ];

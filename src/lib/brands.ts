@@ -1,25 +1,17 @@
 /**
  * =============================================================================
- *  BITSOL AI Assistant — Dual-brand registry
+ *  Cakestry Bakery AI Assistant — Dual-department registry
  * =============================================================================
  *
- *  The assistant serves TWO independent businesses under one BITSOL umbrella:
+ *  The assistant serves TWO bakery divisions under one Cakestry Bakery umbrella:
  *
- *    1. BITSOL Marketing  — business services, digital solutions, AI automation
- *    2. BITSOL Institute of Digital Media & Artificial Intelligence — education
+ *    1. Cakestry Bakery & Custom Cakes — fresh cakes, pastries, custom birthday designs
+ *    2. Cakestry Events & Special Orders — party catering, dessert tables, gift boxes
  *
- *  Everything that differs between them (name, voice, theme, contact details,
- *  menus, knowledge base, workflows, reference-id prefixes) is resolved through
- *  this single registry so no module ever hard-codes one business. Keeping the
- *  two profiles side by side also makes the "never mix business information"
- *  rule enforceable: a module asks for `brand(department)` and gets exactly one.
- *
- *  This file is isomorphic (no server-only imports) so client components can
- *  theme themselves from the same source of truth.
  * =============================================================================
  */
 
-/** The two businesses the assistant routes between. */
+/** The two business departments the assistant routes between. */
 export type Department = "MARKETING" | "INSTITUTE";
 
 /** All departments, in menu order. */
@@ -66,71 +58,61 @@ export interface BrandProfile {
   contact: BrandContact;
 }
 
-/**
- * NOTE ON ACCURACY — the phone/WhatsApp number below is BITSOL's live business
- * line (+92 312 0141581), shared by both businesses. If the Institute is given
- * its own number, change it here. The remaining contact fields are still
- * representative defaults and should be confirmed before go-live.
- *
- * All of it is overridable at runtime from Admin → Settings (`settings` table).
- * The assistant is explicitly instructed never to invent contact details beyond
- * what is supplied here.
- */
 export const BRANDS: Record<Department, BrandProfile> = {
   MARKETING: {
     id: "MARKETING",
     slug: "marketing",
-    name: "BITSOL Marketing",
-    shortName: "BITSOL Marketing",
-    emoji: "🏢",
-    tagline: "Business growth, engineered with Artificial Intelligence.",
+    name: "Cakestry Bakery & Custom Cakes",
+    shortName: "Cakestry Bakery",
+    emoji: "🎂",
+    tagline: "Crafting Delicious Custom Cakes & Bakery Delights in Bahawal Nagar.",
     description:
-      "BITSOL Marketing is a full-service digital and AI solutions company. We build AI chatbots, WhatsApp automation, AI agents, websites, mobile apps and complete brand systems for businesses that want to grow faster with less manual work.",
+      "Cakestry Bakery is Bahawal Nagar's premier custom cake and bakery shop. We specialize in custom birthday cakes, wedding cakes, fondant designs, fresh pastries, and bakery items with fast local delivery.",
     purpose: [
-      "Business Services",
-      "Digital Solutions",
-      "AI Automation",
-      "Software Development",
+      "Custom Cakes",
+      "Fresh Bakery Items",
+      "Birthday & Wedding Cakes",
+      "Pastries & Desserts",
     ],
-    referencePrefix: "BM",
+    referencePrefix: "CB",
     theme: {
-      gradient: "from-[#0b1d5b] via-[#123a8a] to-[#0f766e]",
-      accentName: "Electric Blue",
+      gradient: "from-[#ea580c] via-[#c2410c] to-[#9a3412]",
+      accentName: "Bakery Amber",
     },
     contact: {
-      phone: "+92 312 0141581",
-      whatsapp: "+92 312 0141581",
-      email: "info@bitsolmarketing.com",
-      address: "BITSOL Marketing, Faisalabad",
-      city: "Faisalabad, Pakistan",
-      hours: "Monday–Saturday, 10:00 AM – 7:00 PM (PKT)",
-      website: "https://bitsolmarketing.com",
+      phone: "+92 300 1234567",
+      whatsapp: "+92 321 6759463",
+      email: "order@cakestry.com",
+      address: "Model Town, Bahawal Nagar",
+      city: "Bahawal Nagar, Punjab, Pakistan",
+      hours: "Monday–Sunday, 9:00 AM – 11:00 PM (PKT)",
+      website: "https://cakestry.com",
     },
   },
 
   INSTITUTE: {
     id: "INSTITUTE",
     slug: "institute",
-    name: "BITSOL Institute of Digital Media & Artificial Intelligence",
-    shortName: "BITSOL Institute",
-    emoji: "🎓",
-    tagline: "Learn digital media and AI skills that actually pay.",
+    name: "Cakestry Special Events & Gift Boxes",
+    shortName: "Cakestry Events",
+    emoji: "🧁",
+    tagline: "Special Event Catering, Dessert Tables & Gourmet Gift Boxes.",
     description:
-      "BITSOL Institute of Digital Media & Artificial Intelligence trains students in digital marketing, AI automation, design, video, development and freelancing. Every course is project-based, taught by working professionals, and ends with a certificate plus career support.",
-    purpose: ["Admissions", "Learning", "Student Services", "Career Guidance"],
-    referencePrefix: "BI",
+      "Cakestry Special Events offers party catering, corporate cake gift boxes, dessert tables, and custom anniversary packages with doorstep delivery across Bahawal Nagar.",
+    purpose: ["Event Catering", "Dessert Tables", "Corporate Gift Boxes", "Custom Orders"],
+    referencePrefix: "CE",
     theme: {
-      gradient: "from-[#0b3d2e] via-[#0f766e] to-[#115e59]",
-      accentName: "Academy Emerald",
+      gradient: "from-[#9d174d] via-[#be185d] to-[#831843]",
+      accentName: "Berry Rose",
     },
     contact: {
-      phone: "+92 312 0141581",
-      whatsapp: "+92 312 0141581",
-      email: "admissions@bitsolinstitute.com",
-      address: "BITSOL Institute of Digital Media & AI, Faisalabad",
-      city: "Faisalabad, Pakistan",
-      hours: "Monday–Saturday, 9:00 AM – 8:00 PM (PKT)",
-      website: "https://bitsolmarketing.com",
+      phone: "+92 300 1234567",
+      whatsapp: "+92 321 6759463",
+      email: "events@cakestry.com",
+      address: "Model Town, Bahawal Nagar",
+      city: "Bahawal Nagar, Punjab, Pakistan",
+      hours: "Monday–Sunday, 9:00 AM – 11:00 PM (PKT)",
+      website: "https://cakestry.com",
     },
   },
 };

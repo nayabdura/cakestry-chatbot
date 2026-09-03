@@ -1,28 +1,28 @@
 /**
- * Product-level branding for the BITSOL AI Assistant.
+ * Product-level branding for the Cakestry AI Assistant.
  *
- * `BRANDS` (src/lib/brands.ts) holds the two *business* profiles the assistant
+ * `BRANDS` (src/lib/brands.ts) holds the two business profiles the assistant
  * routes between. This file holds the branding that sits ABOVE both of them —
- * the assistant's own identity and the BITSOL developer attribution rendered on
+ * the assistant's own identity and the Cakestry Bakery attribution rendered on
  * the splash screen, login, footer, about page, admin console and chat widget.
  */
 import { BRANDS } from "./brands";
 
 export const BRANDING = {
   product: {
-    name: "BITSOL AI Assistant",
-    shortName: "BITSOL AI",
+    name: "Cakestry AI Assistant",
+    shortName: "Cakestry AI",
     /** Umbrella group both businesses belong to. */
-    group: "BITSOL",
+    group: "Cakestry Bakery",
     poweredBy: "Powered by Artificial Intelligence",
     description:
-      "One assistant for BITSOL Marketing and BITSOL Institute of Digital Media & Artificial Intelligence.",
+      "Official Customer Service & Order Assistant for Cakestry Bakery & Special Events in Bahawal Nagar.",
   },
   developer: {
-    name: "BITSOL MARKETING",
-    url: "https://bitsolmarketing.com",
-    tagline: "Empowering Businesses & Learners with Artificial Intelligence",
-    attribution: "Designed & Developed by BITSOL MARKETING",
+    name: "Cakestry Bakery Bahawal Nagar",
+    url: "https://cakestry.com",
+    tagline: "Crafting Delicious Custom Cakes & Bakery Delights in Bahawal Nagar",
+    attribution: "Designed & Developed for Cakestry Bakery Bahawal Nagar",
   },
   businesses: {
     marketing: BRANDS.MARKETING,

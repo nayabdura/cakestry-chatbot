@@ -9,7 +9,7 @@ import { departmentContent } from "@/data";
  * so the system runs anywhere, including offline demos. It scores entries by
  * keyword hits, question-word overlap and category match, then returns the top
  * results, which are injected into the system prompt so the assistant answers
- * from BITSOL's own content before reaching for general model knowledge.
+ * from Cakestry Bakery's own content before reaching for general model knowledge.
  *
  * The `department` argument is required and non-nullable by design: there is no
  * way to run an unscoped search, so a Marketing conversation can never surface

@@ -3,15 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Bot, Loader2 } from "lucide-react";
+import { ArrowRight, Cake, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { BitsolBranding } from "@/components/branding/BitsolBranding";
+import { CakestryBranding } from "@/components/branding/CakestryBranding";
 import { BRANDING } from "@/lib/branding";
 import { BRANDS } from "@/lib/brands";
 
-/** Roles that land in the admin console rather than the public chat. */
 const STAFF_ROLES = ["AGENT", "INSTRUCTOR", "ADMIN", "SUPER_ADMIN"];
 
 export default function LoginPage() {
@@ -46,8 +45,6 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Something went wrong.");
 
-      // Honour ?next=… when the admin console bounced us here, otherwise send
-      // staff to the console and everyone else to the assistant.
       const next = new URLSearchParams(window.location.search).get("next");
       const role: string | undefined = data?.user?.role;
       router.push(next ?? (role && STAFF_ROLES.includes(role) ? "/admin" : "/chat"));
@@ -60,11 +57,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="brand-gradient grid min-h-dvh place-items-center p-4">
+    <div className="bg-gradient-to-r from-orange-700 via-orange-800 to-amber-900 grid min-h-dvh place-items-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 flex flex-col items-center gap-3 text-center text-white">
           <span className="grid size-14 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/25 backdrop-blur">
-            <Bot className="size-7" />
+            <Cake className="size-7 text-white" />
           </span>
           <div>
             <h1 className="text-xl font-bold">{BRANDING.product.name}</h1>
@@ -153,7 +150,7 @@ export default function LoginPage() {
         </Card>
 
         <div className="mt-6 flex justify-center">
-          <BitsolBranding
+          <CakestryBranding
             className="text-white/70 [&_a]:text-white [&_a:hover]:text-white"
             variant="stacked"
           />

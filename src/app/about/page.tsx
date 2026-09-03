@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import {
   ArrowLeft,
   Bot,
-  Building2,
-  GraduationCap,
+  Cake,
+  Gift,
   Globe,
   Languages,
   Lock,
@@ -14,41 +14,41 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/branding/Footer";
-import { BitsolBranding } from "@/components/branding/BitsolBranding";
+import { CakestryBranding } from "@/components/branding/CakestryBranding";
 import { BRANDING, brandName, brandUrl, brandTagline } from "@/lib/branding";
 import { BRANDS } from "@/lib/brands";
 
 export const metadata: Metadata = {
   title: "About",
   description:
-    "About the BITSOL AI Assistant — one assistant serving BITSOL Marketing and BITSOL Institute of Digital Media & Artificial Intelligence.",
+    "About the Cakestry AI Assistant — official customer assistant for Cakestry Bakery & Special Events Bahawal Nagar.",
 };
 
 const FEATURES = [
   {
     icon: Workflow,
     title: "Intelligent routing",
-    desc: "Works out whether you need BITSOL Marketing or BITSOL Institute, remembers the choice, and lets you switch whenever you like.",
+    desc: "Helps you choose between Bakery Cake Orders or Special Event Catering & Gift Boxes.",
   },
   {
     icon: Languages,
     title: "Four languages",
-    desc: "English, Urdu, Roman Urdu and Punjabi — with tolerance for spelling mistakes, abbreviations and mixed-language messages.",
+    desc: "English, Urdu, Roman Urdu and Punjabi — with tolerance for spelling mistakes, cake flavor requests and Urdu text.",
   },
   {
     icon: Sparkles,
     title: "Grounded answers",
-    desc: "Replies come from an approved knowledge base per business, so service and course information is never mixed.",
+    desc: "Replies come from Cakestry Bakery's official product list, cake prices, and delivery terms in Bahawal Nagar.",
   },
   {
     icon: Globe,
-    title: "24/7 availability",
-    desc: "Leads, admission inquiries, bookings and support tickets are captured at 2am just as reliably as at 2pm.",
+    title: "24/7 order capture",
+    desc: "Cake orders, custom requests, and event inquiries logged anytime with immediate reference IDs.",
   },
   {
     icon: Bot,
-    title: "Actions, not just answers",
-    desc: "Quotes, consultations, admission inquiries and support tickets are created with real reference numbers and routed to the right team.",
+    title: "Actions & Workflows",
+    desc: "Custom cake quotes, tasting bookings, and support tickets created and sent directly to the bakery team.",
   },
   {
     icon: Lock,
@@ -63,8 +63,8 @@ export default function AboutPage() {
       <header className="glass sticky top-0 z-40">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground">
-              <Bot className="size-5" />
+            <span className="grid size-9 place-items-center rounded-xl bg-orange-600 text-white">
+              <Cake className="size-5" />
             </span>
             <span className="text-sm font-bold">{BRANDING.product.name}</span>
           </Link>
@@ -78,29 +78,27 @@ export default function AboutPage() {
 
       <section className="container max-w-3xl py-16">
         <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-          About the {BRANDING.product.name}
+          About {BRANDING.product.name}
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          {BRANDING.product.description} One conversation, two businesses — with a strict
-          wall between them so a customer asking about a website never gets course fees,
-          and a student asking about admissions never gets a project quotation.
+          {BRANDING.product.description} Servicing Model Town and all areas across Bahawal Nagar with custom cakes, birthday specials, wedding cakes, and event catering.
         </p>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
           {[BRANDS.MARKETING, BRANDS.INSTITUTE].map((brand) => (
             <Card key={brand.id} data-department={brand.id} className="p-5">
-              <span className="mb-3 inline-grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
+              <span className="mb-3 inline-grid size-11 place-items-center rounded-xl bg-orange-100 text-orange-700">
                 {brand.id === "MARKETING" ? (
-                  <Building2 className="size-5" />
+                  <Cake className="size-5" />
                 ) : (
-                  <GraduationCap className="size-5" />
+                  <Gift className="size-5" />
                 )}
               </span>
               <h3 className="font-semibold">
                 {brand.emoji} {brand.shortName}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">{brand.description}</p>
-              <p className="mt-3 text-xs font-medium text-primary">
+              <p className="mt-3 text-xs font-medium text-orange-700">
                 {brand.purpose.join(" · ")}
               </p>
             </Card>
@@ -111,7 +109,7 @@ export default function AboutPage() {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {FEATURES.map((feature) => (
             <Card key={feature.title} className="p-5">
-              <span className="mb-3 inline-grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
+              <span className="mb-3 inline-grid size-11 place-items-center rounded-xl bg-orange-100 text-orange-700">
                 <feature.icon className="size-5" />
               </span>
               <h3 className="font-semibold">{feature.title}</h3>
@@ -120,11 +118,11 @@ export default function AboutPage() {
           ))}
         </div>
 
-        <Card className="brand-gradient mt-12 border-0 p-8 text-white">
+        <Card className="bg-gradient-to-r from-orange-700 to-amber-800 mt-12 border-0 p-8 text-white">
           <h2 className="text-xl font-bold">{BRANDING.product.poweredBy}</h2>
           <p className="mt-2 text-white/80">{brandTagline}</p>
           <div className="mt-5">
-            <p className="text-sm text-white/70">Designed &amp; Developed by</p>
+            <p className="text-sm text-white/70">Designed &amp; Developed for</p>
             <Link
               href={brandUrl}
               target="_blank"
@@ -136,15 +134,15 @@ export default function AboutPage() {
           </div>
           <div className="mt-6">
             <Link href="/chat">
-              <Button className="gap-2 bg-white text-primary hover:bg-white/90">
-                <Sparkles className="size-4" /> Try the assistant
+              <Button className="gap-2 bg-white text-orange-800 hover:bg-white/90">
+                <Sparkles className="size-4" /> Try Order Assistant
               </Button>
             </Link>
           </div>
         </Card>
 
         <div className="mt-10 flex justify-center">
-          <BitsolBranding />
+          <CakestryBranding />
         </div>
       </section>
 
