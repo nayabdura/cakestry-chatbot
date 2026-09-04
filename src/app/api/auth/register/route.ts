@@ -42,9 +42,10 @@ export async function POST(req: NextRequest) {
     const res = Response.json({
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
+    const isSecure = req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
     res.headers.append(
       "Set-Cookie",
-      cookie(SESSION_COOKIE, token, config.isProd)
+      cookie(SESSION_COOKIE, token, isSecure)
     );
     return res;
   } catch (e) {

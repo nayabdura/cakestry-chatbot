@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
         department: user.department,
       },
     });
-    res.headers.append("Set-Cookie", cookie(SESSION_COOKIE, token, config.isProd));
+    const isSecure = req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+    res.headers.append("Set-Cookie", cookie(SESSION_COOKIE, token, isSecure));
     return res;
   } catch (e) {
     console.error("[login] error:", e);
