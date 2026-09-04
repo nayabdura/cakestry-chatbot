@@ -47,8 +47,8 @@ export default function LoginPage() {
 
       const next = new URLSearchParams(window.location.search).get("next");
       const role: string | undefined = data?.user?.role;
-      router.push(next ?? (role && STAFF_ROLES.includes(role) ? "/admin" : "/chat"));
-      router.refresh();
+      const target = next ?? (role && STAFF_ROLES.includes(role) ? "/admin" : "/chat");
+      window.location.href = target;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
