@@ -42,10 +42,9 @@ export async function POST(req: NextRequest) {
     const res = Response.json({
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
-    const isSecure = req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
     res.headers.append(
       "Set-Cookie",
-      cookie(SESSION_COOKIE, token, isSecure)
+      cookie(SESSION_COOKIE, token)
     );
     return res;
   } catch (e) {
@@ -57,7 +56,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function cookie(name: string, value: string, secure: boolean): string {
+function cookie(name: string, value: string): string {
   const parts = [
     `${name}=${value}`,
     "Path=/",
@@ -65,6 +64,5 @@ function cookie(name: string, value: string, secure: boolean): string {
     "SameSite=Lax",
     `Max-Age=${60 * 60 * 24 * 7}`,
   ];
-  if (secure) parts.push("Secure");
   return parts.join("; ");
 }
