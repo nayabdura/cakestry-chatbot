@@ -1,8 +1,7 @@
-import { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { verifyPassword, signSession, SESSION_COOKIE } from "@/lib/auth";
-import { config } from "@/lib/config";
 
 export const runtime = "nodejs";
 
@@ -14,15 +13,14 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return Response.json({ error: "Enter a valid email and password." }, { status: 400 });
+    return NextResponse.json({ error: "Enter a valid email and password." }, { status: 400 });
   }
   const { email, password } = parsed.data;
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    // Generic message avoids leaking which accounts exist.
     const invalid = () =>
-      Response.json({ error: "Invalid email or password." }, { status: 401 });
+      NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
 
     if (!user || !user.passwordHash || !user.isActive) return invalid();
     if (!(await verifyPassword(password, user.passwordHash))) return invalid();
@@ -35,7 +33,7 @@ export async function POST(req: NextRequest) {
       name: user.name,
       department: user.department,
     });
-    const res = Response.json({
+    const res = NextResponse.json({
       user: {
         id: user.id,
         name: user.name,
@@ -44,24 +42,21 @@ export async function POST(req: NextRequest) {
         department: user.department,
       },
     });
-    res.headers.append("Set-Cookie", cookie(SESSION_COOKIE, token));
+    res.cookies.set({
+      name: SESSION_COOKIE,
+      value: token,
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      secure: false,
+    });
     return res;
   } catch (e) {
     console.error("[login] error:", e);
-    return Response.json(
+    return NextResponse.json(
       { error: "Sign-in is unavailable right now. Please try again later." },
       { status: 500 }
     );
   }
-}
-
-function cookie(name: string, value: string): string {
-  const parts = [
-    `${name}=${value}`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    `Max-Age=${60 * 60 * 24 * 7}`,
-  ];
-  return parts.join("; ");
 }
