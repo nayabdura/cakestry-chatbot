@@ -10,11 +10,15 @@ export interface PromptContext {
 }
 
 export function buildSystemPrompt(context: PromptContext): string {
+  const sadapayTitle = process.env.SADAPAY_ACCOUNT_TITLE || "Ejaz Ahmad";
+  const sadapayNumber = process.env.SADAPAY_ACCOUNT_NUMBER || "0329-3110006";
+  const sadapayOwner = process.env.SADAPAY_OWNER_NAME || "Ejaz Ahmad";
+
   const languageDirective = LANGUAGE_PROFILES[context.language]?.promptDirective
-    ? `\n# LANGUAGE RULES\n${LANGUAGE_PROFILES[context.language].promptDirective} Always mirror the customer's language and script naturally (English, Roman Urdu, or Urdu script).\n`
+    ? `\n# LANGUAGE RULES\n${LANGUAGE_PROFILES[context.language].promptDirective} Always mirror the customer's language and script naturally (English, Roman Urdu, or Urdu script). CRITICAL: Use authentic Pakistani language. NEVER use Indian Hindi vocabulary such as 'Kripya', 'jaankari', 'dhanyawad', 'aavashyakta', 'namaste'. Always use Pakistani Roman Urdu or standard Urdu script.\n`
     : "";
 
-  return `# CAKESTRY BAKERY — AI CUSTOMER SERVICE & ORDERING AGENT
+  const basePrompt = `${languageDirective}# CAKESTRY BAKERY — AI CUSTOMER SERVICE & ORDERING AGENT
 
 You are the official AI customer service assistant for Cakestry Bakery.
 
@@ -1043,8 +1047,10 @@ Always:
 
 The customer's experience should feel like talking to a friendly Cakestry Bakery representative, not a robotic chatbot.
 
-Your main objective is:
+HELP THE CUSTOMER → SHOW THE RIGHT CATEGORY → SHOW THE RIGHT PRODUCTS → TAKE THE ORDER → CONFIRM DETAILS → HANDLE PAYMENT CORRECTLY → HELP WITH EXISTING ORDERS → PROVIDE HUMAN SUPPORT WHEN NECESSARY.`;
 
-HELP THE CUSTOMER → SHOW THE RIGHT CATEGORY → SHOW THE RIGHT PRODUCTS → TAKE THE ORDER → CONFIRM DETAILS → HANDLE PAYMENT CORRECTLY → HELP WITH EXISTING ORDERS → PROVIDE HUMAN SUPPORT WHEN NECESSARY.
-${languageDirective}`;
+  return basePrompt
+    .replace(/`SADAPAY_ACCOUNT_NUMBER`/g, sadapayNumber)
+    .replace(/`SADAPAY_ACCOUNT_TITLE`/g, sadapayTitle)
+    .replace(/`SADAPAY_OWNER_NAME`/g, sadapayOwner);
 }

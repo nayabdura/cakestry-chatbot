@@ -31,9 +31,9 @@ export const CHEESE_ADDON_PRICE = 70;
 export const STANDARD_DELIVERY_FEE = 150;
 
 export const SADAPAY_DETAILS = {
-  accountTitle: process.env.SADAPAY_ACCOUNT_TITLE || "Cakestry Bakery",
+  accountTitle: process.env.SADAPAY_ACCOUNT_TITLE || "Ejaz Ahmad",
   accountNumber: process.env.SADAPAY_ACCOUNT_NUMBER || "0329-3110006",
-  ownerName: process.env.SADAPAY_OWNER_NAME || "Cakestry Official",
+  ownerName: process.env.SADAPAY_OWNER_NAME || "Ejaz Ahmad",
 };
 
 export const BAKERY_BUSINESS_INFO = {

@@ -124,6 +124,24 @@ export function processCakestryTurn(
     return renderMainMenu(state);
   }
 
+  const isCatalogueInquiry =
+    lowered.includes("kiya kiya") ||
+    lowered.includes("kya kya") ||
+    lowered.includes("kya items") ||
+    lowered.includes("kiya items") ||
+    lowered.includes("aur kya") ||
+    lowered.includes("aur kia") ||
+    lowered.includes("or apky pass") ||
+    lowered.includes("aur apky pass") ||
+    lowered.includes("what items") ||
+    lowered.includes("what do you have") ||
+    lowered.includes("show menu") ||
+    lowered.includes("kya milta");
+
+  if (isCatalogueInquiry) {
+    return renderCatalogueOverview(state);
+  }
+
   if (trimmed === `${ACTION_BUTTON_PREFIX}human` || lowered.includes("human") || lowered.includes("agent") || lowered.includes("support")) {
     return {
       handled: true,
@@ -685,4 +703,49 @@ function renderLocationInfo(state: CakestryStateData): ActionOutcome {
   ];
 
   return { handled: true, state, reply: { text, buttons } };
+}
+
+function renderCatalogueOverview(state: CakestryStateData): ActionOutcome {
+  const isUr = state.language === "ur";
+  const text = isUr
+    ? `🎂 *کیکسٹری بیکری مینو اور ورائٹی* 🍰\n\n` +
+      `ہمارے پاس تمام تازگی سے تیار کردہ بیکری آئٹمز دستیاب ہیں:\n` +
+      `1. 🎂 سیگنیچر کیکس (چاکلیٹ فج، ریڈ ویلوٹ، پائن ایپل، لوٹس، تھری ملکی...)\n` +
+      `2. 🧁 کپ کیکس (نوٹیلا، لوٹس، ریڈ ویلوٹ...)\n` +
+      `3. 🍫 پریمیئم براؤنیز (نوٹیلا، والنٹ...)\n` +
+      `4. 🍩 ڈونٹس اور سلائس (چاکلیٹ ڈونٹس، چیز کیک سلائس...)\n` +
+      `5. 🥐 پیسٹریز (مولٹن لاوا، بلیک فارسٹ، تھری ملکی...)\n` +
+      `6. 🌯 ریپس اور سینڈوچ (کلب سینڈوچ، بی بی کیو ریپ، زنگر رول...)\n` +
+      `7. 🍰 ڈیزرٹس اور سنیکس (کریم پفس، چیز بالز...)\n` +
+      `8. 🎨 کسٹم کیکس (اپنی مرضی کا ڈیزائن اور وزن)\n\n` +
+      `نیچے زمرہ منتخب کر کے تمام پروڈکٹس اور قیمتیں دیکھیں۔ 👇`
+    : `🎂 *Cakestry Bakery Menu & Varieties* 🍰\n\n` +
+      `We offer a rich variety of freshly baked goods:\n` +
+      `1. 🎂 Signature Cakes (Chocolate Fudge, Red Velvet, Pineapple, Lotus, Three Milk...)\n` +
+      `2. 🧁 Cupcakes (Nutella, Lotus, Red Velvet...)\n` +
+      `3. 🍫 Premium Brownies (Nutella, Walnut...)\n` +
+      `4. 🍩 Donuts & Slices (Glazed Donuts, Cheesecake Slices...)\n` +
+      `5. 🥐 Pastries (Molten Lava, Black Forest, Three Milk...)\n` +
+      `6. 🌯 Wraps & Sandwiches (Club Sandwich, BBQ Wrap, Zinger Roll...)\n` +
+      `7. 🍰 Desserts & Savories (Cream Puffs, Cheese Balls...)\n` +
+      `8. 🎨 Custom Cakes (Custom Theme & Servings)\n\n` +
+      `Select a category below to explore products & prices! 👇`;
+
+  const rows: ListRow[] = CATEGORIES.map((cat) => ({
+    id: `${CATEGORY_BUTTON_PREFIX}${cat.id}`,
+    title: (isUr ? `${cat.icon} ${cat.nameUr}` : `${cat.icon} ${cat.nameEn}`).slice(0, 24),
+    description: (isUr ? cat.descriptionUr : cat.descriptionEn).slice(0, 72),
+  }));
+
+  return {
+    handled: true,
+    state,
+    reply: {
+      text,
+      list: {
+        label: isUr ? "مینو کے زمرے" : "Categories",
+        rows,
+      },
+    },
+  };
 }

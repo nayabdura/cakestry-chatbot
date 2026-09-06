@@ -40,7 +40,7 @@ export const LANGUAGE_PROFILES: Record<Language, LanguageProfile> = {
     speechTag: "ur-PK",
     rtl: false,
     promptDirective:
-      "Reply in Roman Urdu (Urdu written in Latin script), friendly and clear.",
+      "Reply ONLY in authentic Pakistani Roman Urdu (Latin script). Use natural conversational words like 'Ji bilkul', 'Aap ko kya chahiye', 'Meherbani', 'Humare paas'. NEVER use Indian Hindi words like 'Kripya', 'jaankari', 'dhanyawad', 'aavashyakta', 'namaste'.",
   },
   pa: {
     id: "pa",
