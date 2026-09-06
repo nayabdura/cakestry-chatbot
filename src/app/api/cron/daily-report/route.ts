@@ -1,19 +1,15 @@
 import { sendDailyBakeryReportToOwner } from "@/lib/reports/daily-bakery-report";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const result = await sendDailyBakeryReportToOwner();
-    return Response.json(
-      {
-        ok: true,
-        timestamp: new Date().toISOString(),
-        report: result.reportText,
-      },
-      { status: 200 }
-    );
+    return Response.json({
+      ok: true,
+      timestamp: new Date().toISOString(),
+      report: result.reportText,
+    });
   } catch (error) {
     console.error("[cron/daily-report] failed:", error);
     return Response.json(
@@ -23,6 +19,6 @@ export async function GET() {
   }
 }
 
-export async function POST() {
-  return GET();
+export async function POST(request: Request) {
+  return GET(request);
 }
