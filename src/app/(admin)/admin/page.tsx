@@ -55,6 +55,33 @@ export default async function AdminDashboard() {
 
       {error && <DbNotice error={error} />}
 
+      {/* Daily 11 PM Summary Highlight Card */}
+      <Card className="mb-4 border border-primary/20 bg-gradient-to-r from-primary/5 via-card to-card p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                DAILY 11 PM PKT SUMMARY
+              </span>
+              <span className="text-xs text-muted-foreground font-mono">
+                {new Date().toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", weekday: "long", year: "numeric", month: "short", day: "numeric" })}
+              </span>
+            </div>
+            <p className="text-sm font-semibold mt-1">
+              Automated 11:00 PM Sales & Order Snapshot System
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/daily-summary"
+              className="rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Open Daily Summaries →
+            </Link>
+          </div>
+        </div>
+      </Card>
+
       {/* Primary widgets */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

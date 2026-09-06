@@ -53,6 +53,7 @@ export const ADMIN_NAV: NavGroup[] = [
     label: "Overview",
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard, permission: "dashboard.view" },
+      { label: "Daily Summary 11 PM", href: "/admin/daily-summary", icon: ReceiptText, permission: "dashboard.view" },
       {
         label: "Live Conversations",
         href: "/admin/conversations",

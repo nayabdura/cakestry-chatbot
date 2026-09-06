@@ -1145,3 +1145,36 @@ model AnalyticsDaily {
   @@index([date])
   @@map("analytics_daily")
 }
+
+/// Official Daily Sales & Order Summary Snapshot generated at 11:00 PM PKT
+model DailySummary {
+  id              String   @id @default(cuid())
+  summaryId       String   @unique
+  summaryType     String   @default("BUSINESS_DAY")
+  businessDate    String
+  periodStart     DateTime
+  periodEnd       DateTime
+  timezone        String   @default("Asia/Karachi")
+  totalOrders     Int      @default(0)
+  grossSales      Decimal  @default(0) @db.Decimal(12, 2)
+  discountTotal   Decimal  @default(0) @db.Decimal(12, 2)
+  netSales        Decimal  @default(0) @db.Decimal(12, 2)
+  paidSales       Decimal  @default(0) @db.Decimal(12, 2)
+  pendingSales    Decimal  @default(0) @db.Decimal(12, 2)
+  cancelledOrders Int      @default(0)
+  completedOrders Int      @default(0)
+  deliveryOrders  Int      @default(0)
+  pickupOrders    Int      @default(0)
+  uniqueCustomers Int      @default(0)
+  itemsSold       Int      @default(0)
+  topProductsJson Json?
+  orderDetails    Json?
+  generatedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessDate])
+  @@index([summaryId])
+  @@index([generatedAt])
+  @@map("daily_summaries")
+}
