@@ -20,11 +20,11 @@ function pick(copy: Localised, language: Language): string {
 // ---------------------------------------------------------------- Welcome ---
 
 const WELCOME: Localised = {
-  en: "👋 *Welcome to Cakestry Bakery Bahawal Nagar!*\n\nI'm your AI assistant. Please select the service you need so I can assist you:",
-  ur: "👋 *کیکسٹری بیکری بہاول نگر میں خوش آمدید!*\n\nمیں آپ کا اے آئی اسسٹنٹ ہوں۔ براہِ کرم خدمت منتخب کریں:",
+  en: "Assalam-o-Alaikum! 👋\nWelcome to Cakestry Bakery 🎂\nWhere every bite creates a sweet memory ✨\nFreshly baked with love, just for you! ❤️\n\nHow would you like to chat?",
+  ur: "السلام علیکم! 👋\nکیکسٹری بیکری میں خوش آمدید 🎂\nجہاں ہر نوالہ ایک میٹھی یاد بناتا ہے ✨\nتازہ بیک شدہ، صرف آپ کے لیے! ❤️\n\nآپ کس زبان میں بات کرنا چاہیں گے؟",
   ur_roman:
-    "👋 *Cakestry Bakery Bahawal Nagar mein khush aamdeed!*\n\nMain aap ka AI assistant hoon. Please service select karein:",
-  pa: "👋 *کیکسٹری بیکری بہاول نگر وچ جی آیاں نوں!*\n\nمیں تہاڈا اے آئی اسسٹنٹ آں۔ براہِ کرم خدمت چُݨ لوو:",
+    "Assalam-o-Alaikum! 👋\nWelcome to Cakestry Bakery 🎂\nWhere every bite creates a sweet memory ✨\nFreshly baked with love, just for you! ❤️\n\nAap kis zabaan mein baat karna chahenge?",
+  pa: "السلام علیکم! 👋\nکیکسٹری بیکری وچ جی آیاں نوں 🎂\nتازہ بیک کیتا، صرف تہاڈے لئی! ❤️",
 };
 
 const WELCOME_FOOTER: Localised = {
@@ -45,11 +45,11 @@ export function welcomeMessage(language: Language): {
     buttons: [
       {
         id: `${DEPARTMENT_BUTTON_PREFIX}MARKETING`,
-        title: `${BRANDS.MARKETING.emoji} Bakery Cakes`,
+        title: `🇬🇧 English`,
       },
       {
         id: `${DEPARTMENT_BUTTON_PREFIX}INSTITUTE`,
-        title: `${BRANDS.INSTITUTE.emoji} Special Events`,
+        title: `🇵🇰 Urdu`,
       },
     ],
   };
