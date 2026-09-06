@@ -33,7 +33,7 @@ export const STANDARD_DELIVERY_FEE = 150;
 export const SADAPAY_DETAILS = {
   accountTitle: process.env.SADAPAY_ACCOUNT_TITLE || "Ejaz Ahmad",
   accountNumber: process.env.SADAPAY_ACCOUNT_NUMBER || "0329-3110006",
-  ownerName: process.env.SADAPAY_OWNER_NAME || "Ejaz Ahmad",
+  ownerName: process.env.SADAPAY_OWNER_NAME || "EJAZ AHMAD",
 };
 
 export const BAKERY_BUSINESS_INFO = {
@@ -207,15 +207,142 @@ export function findProductsByCategory(categoryId: string): CakestryProduct[] {
   return PRODUCTS.filter((p) => p.categoryId === categoryId);
 }
 
-export function findProductByName(name: string): CakestryProduct | undefined {
-  const lowered = name.trim().toLowerCase();
-  return PRODUCTS.find(
+/**
+ * Robust Product Alias Resolver & Fuzzy Matcher
+ * Maps natural customer phrases, Roman Urdu, singular/plural, and abbreviations
+ * strictly to valid server-side catalogue products.
+ * NEVER returns random products or defaults when unmapped.
+ */
+export function resolveProductAlias(rawInput: string): CakestryProduct | undefined {
+  if (!rawInput) return undefined;
+  const lowered = rawInput.trim().toLowerCase();
+
+  // 1. Direct ID / Exact Name Match
+  const exact = PRODUCTS.find(
     (p) =>
-      p.nameEn.toLowerCase() === lowered ||
-      p.nameUr.toLowerCase() === lowered ||
       p.id.toLowerCase() === lowered ||
-      lowered.includes(p.nameEn.toLowerCase())
+      p.nameEn.toLowerCase() === lowered ||
+      p.nameUr.toLowerCase() === lowered
   );
+  if (exact) return exact;
+
+  // 2. Exact Manual Alias Mappings
+  const ALIAS_MAP: Record<string, string> = {
+    // Signature Cakes
+    "black forest": "blackforest_cake",
+    "black forest cake": "blackforest_cake",
+    "black forest cakes": "blackforest_cake",
+    "blackforest": "blackforest_cake",
+    "blackforest cake": "blackforest_cake",
+
+    "chocolate fudge": "choc_fudge",
+    "chocolate fudge cake": "choc_fudge",
+    "chocolate fudge cakes": "choc_fudge",
+    "choc fudge": "choc_fudge",
+    "fudge cake": "choc_fudge",
+    "diet chocolate fudge cake": "choc_fudge", // Rule: "Diet Chocolate Fudge Cake" maps to Chocolate Fudge Cake
+    "diet chocolate cake": "diet_choc_cake",
+
+    "cream puff": "cream_puffs",
+    "cream puffs": "cream_puffs",
+    "puffs": "cream_puffs",
+    "cream roll": "cream_rolls",
+    "cream rolls": "cream_rolls",
+
+    "pineapple cake": "pineapple_cake",
+    "pineapple cakes": "pineapple_cake",
+
+    "lotus cake": "lotus_cake",
+    "lotus cakes": "lotus_cake",
+
+    "three milk cake": "threemilk_cake",
+    "threemilk cake": "threemilk_cake",
+    "3 milk cake": "threemilk_cake",
+
+    "honey cake": "honey_2p",
+    "honey cake 2p": "honey_2p",
+
+    "chocolate dream cake": "choc_dream",
+    "dream cake": "choc_dream",
+
+    // Cupcakes
+    "lotus cup cake": "cup_lotus",
+    "lotus cupcake": "cup_lotus",
+    "lotus cupcakes": "cup_lotus",
+
+    "nutella cup cake": "cup_nutella",
+    "nutella cupcake": "cup_nutella",
+    "nutella cupcakes": "cup_nutella",
+
+    "red velvet cup cake": "cup_redvelvet",
+    "red velvet cupcake": "cup_redvelvet",
+    "red velvet cupcakes": "cup_redvelvet",
+
+    "ferrero cup cake": "cup_ferrero",
+    "ferrero cupcake": "cup_ferrero",
+
+    // Brownies
+    "nutella brownie": "brownie_nutella",
+    "nutella brownies": "brownie_nutella",
+    "walnut brownie": "brownie_walnut",
+    "walnut brownies": "brownie_walnut",
+
+    // Donuts & Slices
+    "nutella donut": "donut_nutella",
+    "chocolate donut": "donut_choc",
+    "lotus donut": "donut_lotus",
+    "bake cheese slice": "slice_bake_cheese",
+    "cheese slice": "slice_cheese",
+    "cheesecake slice": "slice_cheese",
+
+    // Wraps & Sandwiches
+    "grilled sandwich": "sandwich_grilled",
+    "sandwich grilled": "sandwich_grilled",
+    "chicken sandwich": "sandwich_chicken",
+    "bbq sandwich": "sandwich_bbq",
+    "chicken malai boti wrap": "wrap_chicken_malai",
+    "malai boti wrap": "wrap_chicken_malai",
+    "chicken malai boti": "wrap_chicken_malai",
+    "bihari boti wrap": "wrap_bihari_boti",
+    "bihari boti": "wrap_bihari_boti",
+
+    // Desserts & Savories
+    "dry almond cake": "dry_almond_cake",
+    "chicken patty": "chicken_patty",
+    "patty": "chicken_patty",
+
+    // Pastries
+    "molten lava": "pastry_molten_lava",
+    "molten lava cupcake": "pastry_molten_lava",
+    "black forest pastry": "pastry_blackforest",
+    "pineapple pastry": "pastry_pineapple",
+    "lotus pastry": "pastry_lotus",
+    "three milk pastry": "pastry_threemilk",
+    "pistachio pastry": "pastry_pistachio",
+  };
+
+  const aliasId = ALIAS_MAP[lowered];
+  if (aliasId) {
+    return findProductById(aliasId);
+  }
+
+  // 3. Substring matching with safety rules (only if specific product name fully matches a token)
+  const matches = PRODUCTS.filter(
+    (p) =>
+      lowered.includes(p.nameEn.toLowerCase()) ||
+      p.nameEn.toLowerCase().includes(lowered)
+  );
+
+  // If exactly 1 match found, return it safely. If multiple or none, return undefined (never guess randomly!)
+  if (matches.length === 1) {
+    return matches[0];
+  }
+
+  return undefined;
+}
+
+export function findProductByName(name: string): CakestryProduct | undefined {
+  return resolveProductAlias(name);
 }
 
 export interface OrderItemState {

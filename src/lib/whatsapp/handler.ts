@@ -6,40 +6,27 @@ import { rateLimit } from "@/lib/redis";
 import { logEvent, notifyTeam } from "@/lib/notify";
 import { generateReference, shortId } from "@/lib/utils";
 import { detectLanguage, type Language } from "@/lib/i18n";
-import { asDepartment, BRANDS, type Department } from "@/lib/brands";
+import { BRANDS, type Department } from "@/lib/brands";
 import {
-  detectAction,
   planAssistantTurn,
   shouldEscalate,
   streamAssistantReply,
   type ChatTurn,
 } from "@/lib/ai";
-import { findService } from "@/data/marketing/services";
-import { findCourse } from "@/data/institute/courses";
+import { parseCustomerInputNLU } from "@/lib/ai/nlu";
+import { verifyPaymentScreenshot } from "./payment-verifier";
 import { markAsRead, sendButtons, sendList, sendText, toDisplayPhone } from "./client";
 import {
-  asCaptureState,
-  isCaptureStale,
-  type CaptureFlow,
-  type CapturePrompt,
-  type CaptureState,
-} from "./capture";
-import {
-  ACTION_BUTTON_PREFIX,
-  DEPARTMENT_BUTTON_PREFIX,
-  LANGUAGE_BUTTON_PREFIX,
   busyNotice,
   escalationNotice,
-  mediaAcknowledgement,
   optOutConfirmation,
-  welcomeMessage,
 } from "./copy";
 import type { InboundMessage } from "./types";
 import {
   processCakestryTurn,
   type CakestryStateData,
 } from "./cakestry-state";
-import { calculateOrderTotals } from "@/lib/cakestry";
+import { calculateOrderTotals, SADAPAY_DETAILS } from "@/lib/cakestry";
 
 /**
  * =============================================================================
@@ -57,7 +44,7 @@ const LANGUAGE_MAP: Record<Language, PrismaLanguage> = {
 const THREAD_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const MENU_WORDS = ["menu", "start", "restart", "hi", "hello", "hey", "salam", "assalam o alaikum", "assalamualaikum", "aoa", "السلام علیکم", "مینو"];
-const STOP_WORDS = ["stop", "unsubscribe", "opt out", "band karo"];
+const STOP_WORDS = ["stop", "unsubscribe", "opt out", "band karo", "do not message me", "broadcast band karo"];
 
 export async function handleInbound(message: InboundMessage): Promise<void> {
   try {
@@ -107,8 +94,8 @@ async function route(message: InboundMessage): Promise<void> {
   const answer = message.replyId ?? message.text;
   const lowered = answer.trim().toLowerCase();
 
-  // --- Subscription controls ---
-  if (STOP_WORDS.includes(lowered)) {
+  // 1. Subscription Controls (STOP / Unsubscribe keeps contact record, orders, and history intact!)
+  if (STOP_WORDS.some((word) => lowered.includes(word))) {
     await prisma.whatsappContact.update({ where: { waId }, data: { optedOut: true } });
     await say(context, optOutConfirmation(language));
     return;
@@ -117,22 +104,38 @@ async function route(message: InboundMessage): Promise<void> {
     await prisma.whatsappContact.update({ where: { waId }, data: { optedOut: false } });
   }
 
-  // --- Human escalation request ---
+  // 2. Human escalation request
   if (shouldEscalate(message.text)) {
     return escalate(context, "MARKETING", message.text);
   }
 
-  // --- Media & Payment Verification Screenshot check ---
+  // 3. Media & Payment Verification Screenshot check
   const storedCapture = conversation.capture ? (conversation.capture as unknown as CakestryStateData) : null;
-  if (message.kind === "media" && storedCapture?.step === "PAYMENT_VERIFICATION") {
-    await say(context, mediaAcknowledgement(language));
-    await recordCompletedOrder(context, storedCapture);
-    await clearCapture(conversation.id);
+  const isPaymentStep = storedCapture?.step === "PAYMENT_VERIFICATION";
+
+  if (message.kind === "media" || (isPaymentStep && (lowered.includes("sadapay") || lowered.includes("trx") || lowered.includes("transaction")))) {
+    const expectedTotal = storedCapture?.orderDraft.total || 0;
+    const mediaContent = message.text || message.mediaKind || "SadaPay Payment Receipt";
+
+    const verification = await verifyPaymentScreenshot(mediaContent, expectedTotal, message.kind === "media");
+
+    await say(context, verification.customerMessage);
+
+    if (verification.status === "verified") {
+      if (storedCapture) {
+        await recordCompletedOrder(context, storedCapture);
+      }
+      await clearCapture(conversation.id);
+    }
     return;
   }
 
-  // --- Cakestry Deterministic State Machine Turn ---
-  const outcome = processCakestryTurn(storedCapture, answer, language, phone);
+  // 4. Structured AI NLU Extraction
+  const currentCartProducts = storedCapture?.orderDraft?.items?.map((i) => i.productId) || [];
+  const nluResult = await parseCustomerInputNLU(answer, storedCapture?.step, currentCartProducts);
+
+  // 5. Deterministic Cakestry State Machine Turn
+  const outcome = processCakestryTurn(storedCapture, answer, language, phone, nluResult);
 
   if (outcome.handled) {
     await prisma.conversation.update({
@@ -158,7 +161,7 @@ async function route(message: InboundMessage): Promise<void> {
     return;
   }
 
-  // --- Fallback: Freeform natural language question answered by LLM Assistant ---
+  // 6. Freeform natural language question answered by ChatGPT Assistant
   const history = await loadHistory(conversation.id);
   const plan = planAssistantTurn(history, { department: "MARKETING" });
   await answerWithAssistant(context, history, plan);
@@ -291,7 +294,7 @@ function resolveLanguage(message: InboundMessage, stored: PrismaLanguage): Langu
 async function say(
   context: Context,
   text: string,
-  options?: { buttons?: CapturePrompt["buttons"]; list?: CapturePrompt["list"]; footer?: string }
+  options?: { buttons?: Array<{ id: string; title: string }>; list?: { label: string; rows: Array<{ id: string; title: string; description?: string }> }; footer?: string }
 ): Promise<void> {
   const result = options?.list
     ? await sendList(context.waId, text, options.list.label, options.list.rows)
@@ -340,11 +343,6 @@ async function say(
   });
 }
 
-async function sendMenu(context: Context): Promise<void> {
-  const welcome = welcomeMessage(context.language);
-  await say(context, welcome.text, { buttons: welcome.buttons, footer: welcome.footer });
-}
-
 async function answerWithAssistant(
   context: Context,
   history: ChatTurn[],
@@ -390,7 +388,8 @@ async function recordCompletedOrder(context: Context, state: CakestryStateData):
     `Subtotal: Rs. ${totals.subtotal}`,
     `Delivery Fee: Rs. ${totals.deliveryFee}`,
     `Total Amount: Rs. ${totals.total}`,
-    `Payment Status: Pending SadaPay Screenshot Verification`,
+    `Payment Account Owner: ${SADAPAY_DETAILS.ownerName}`,
+    `Payment Status: Verified / Complete`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -421,7 +420,7 @@ async function recordCompletedOrder(context: Context, state: CakestryStateData):
       department: "MARKETING",
       entity: "MarketingLead",
       entityId: lead.id,
-      message: `Order ${reference} placed on WhatsApp by ${context.phone}.`,
+      message: `Order ${reference} placed on WhatsApp by ${context.phone}. Total Rs. ${totals.total}`,
     });
   } catch (error) {
     console.error("[whatsapp] recordCompletedOrder failed:", error);
@@ -504,7 +503,7 @@ async function escalate(
         `Their message:`,
         request || "—",
         ``,
-        `Reply from ${BRANDS[department].contact.whatsapp} within 24 hours, or a template message will be required.`,
+        `Reply from ${BRANDS[department].contact.whatsapp} within 24 hours.`,
       ]
         .filter((line) => line !== null)
         .join("\n"),

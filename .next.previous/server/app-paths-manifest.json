@@ -1,0 +1,13 @@
+{
+  "/api/auth/logout/route": "app/api/auth/logout/route.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(admin)/admin/conversations/page": "app/(admin)/admin/conversations/page.js",
+  "/(admin)/admin/page": "app/(admin)/admin/page.js",
+  "/(admin)/admin/crm/leads/page": "app/(admin)/admin/crm/leads/page.js",
+  "/(admin)/admin/crm/customers/page": "app/(admin)/admin/crm/customers/page.js",
+  "/(admin)/admin/support/tickets/page": "app/(admin)/admin/support/tickets/page.js",
+  "/(admin)/admin/reports/page": "app/(admin)/admin/reports/page.js",
+  "/(admin)/admin/meetings/page": "app/(admin)/admin/meetings/page.js",
+  "/(admin)/admin/crm/admissions/page": "app/(admin)/admin/crm/admissions/page.js"
+}

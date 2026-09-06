@@ -7,13 +7,16 @@ import {
   calculateOrderTotals,
   findProductById,
   findProductsByCategory,
-  findProductByName,
+  resolveProductAlias,
   type CakestryProduct,
+  type OrderItemState,
 } from "@/lib/cakestry";
 import type { ReplyButton, ListRow } from "./types";
+import { parseDeterministicNLU, type StructuredNluOutput } from "@/lib/ai/nlu";
 
 export type CakestryStepState =
   | "WELCOME"
+  | "LANGUAGE_SELECTION"
   | "MAIN_MENU"
   | "CATEGORY_VIEW"
   | "PRODUCT_QUANTITY"
@@ -84,7 +87,7 @@ export function initCakestryState(language: Language): CakestryStateData {
     version: 2,
     step: "WELCOME",
     language,
-    orderDraft: { items: [] },
+    orderDraft: { items: [] }, // ZERO seeded/demo items!
     updatedAt: new Date().toISOString(),
   };
 }
@@ -107,7 +110,8 @@ export function processCakestryTurn(
   currentState: CakestryStateData | null,
   input: string,
   language: Language,
-  waPhone: string
+  waPhone: string,
+  nluInput?: StructuredNluOutput
 ): ActionOutcome {
   let state = currentState || initCakestryState(language);
   state.language = language;
@@ -116,53 +120,11 @@ export function processCakestryTurn(
   const trimmed = input.trim();
   const lowered = trimmed.toLowerCase();
 
-  // Global triggers
-  if (lowered === "menu" || lowered === "start" || lowered === "restart" || lowered === "main menu" || trimmed === `${ACTION_BUTTON_PREFIX}menu` || trimmed === `${ACTION_BUTTON_PREFIX}back_categories`) {
-    state.step = "MAIN_MENU";
-    state.selectedCategory = undefined;
-    state.selectedProduct = undefined;
-    return renderMainMenu(state);
-  }
+  // Run NLU parser if not passed
+  const currentCartProductIds = state.orderDraft.items.map((i) => i.productId);
+  const nlu = nluInput || parseDeterministicNLU(trimmed, state.step, currentCartProductIds);
 
-  const isCatalogueInquiry =
-    lowered.includes("kiya kiya") ||
-    lowered.includes("kya kya") ||
-    lowered.includes("kya items") ||
-    lowered.includes("kiya items") ||
-    lowered.includes("aur kya") ||
-    lowered.includes("aur kia") ||
-    lowered.includes("or apky pass") ||
-    lowered.includes("aur apky pass") ||
-    lowered.includes("what items") ||
-    lowered.includes("what do you have") ||
-    lowered.includes("show menu") ||
-    lowered.includes("kya milta");
-
-  if (isCatalogueInquiry) {
-    return renderCatalogueOverview(state);
-  }
-
-  if (trimmed === `${ACTION_BUTTON_PREFIX}human` || lowered.includes("human") || lowered.includes("agent") || lowered.includes("support")) {
-    return {
-      handled: true,
-      state,
-      escalate: true,
-      reply: {
-        text: language === "ur"
-          ? "🎫 آپ کی درخواست کیکسٹری بیکری ٹیم کو منتقل کی جا رہی ہے۔ ہماری ٹیم کا نمائندہ جلد آپ سے رابطہ کرے گا۔ 🕐"
-          : "🎫 Connecting you to the Cakestry Bakery team. A representative will contact you shortly. 🕐",
-      },
-    };
-  }
-
-  if (trimmed === `${ACTION_BUTTON_PREFIX}my_order` || lowered === "my order" || lowered === "track order" || trimmed === `${CATEGORY_BUTTON_PREFIX}my_order`) {
-    state.step = "MY_ORDER";
-    return renderMyOrder(state, waPhone);
-  }
-
-  // --- Handling button / user selections based on state or direct prefixes ---
-
-  // Language selection
+  // 1. Language Selection Triggers
   if (trimmed.startsWith("lang:")) {
     const langCode = trimmed.slice(5);
     state.language = langCode === "ur" ? "ur" : "en";
@@ -170,7 +132,92 @@ export function processCakestryTurn(
     return renderMainMenu(state);
   }
 
-  // Category tap (e.g. cat:signature_cakes)
+  if (state.step === "WELCOME") {
+    state.step = "LANGUAGE_SELECTION";
+    return renderWelcomeWithLanguageButtons(state);
+  }
+
+  // 2. Global Triggers (Menu, Start, Human Support, Order Track)
+  if (
+    lowered === "menu" ||
+    lowered === "start" ||
+    lowered === "restart" ||
+    lowered === "main menu" ||
+    trimmed === `${ACTION_BUTTON_PREFIX}menu` ||
+    trimmed === `${ACTION_BUTTON_PREFIX}back_categories`
+  ) {
+    state.step = "MAIN_MENU";
+    state.selectedCategory = undefined;
+    state.selectedProduct = undefined;
+    return renderMainMenu(state);
+  }
+
+  if (nlu.intent === "HUMAN_ESCALATE" || trimmed === `${ACTION_BUTTON_PREFIX}human`) {
+    return {
+      handled: true,
+      state,
+      escalate: true,
+      reply: {
+        text:
+          state.language === "ur"
+            ? "🎫 آپ کی درخواست کیکسٹری بیکری ٹیم (0329-3110006) کو منتقل کر دی گئی ہے۔ ہماری ٹیم جلد آپ سے رابطہ کرے گی۔ 🕐"
+            : "🎫 Connecting you to the Cakestry Bakery team (0329-3110006). A representative will contact you shortly! 🕐",
+      },
+    };
+  }
+
+  if (nlu.intent === "CHECK_ORDER" || trimmed === `${ACTION_BUTTON_PREFIX}my_order` || trimmed === `${CATEGORY_BUTTON_PREFIX}my_order`) {
+    state.step = "MY_ORDER";
+    return renderMyOrder(state, waPhone);
+  }
+
+  if (nlu.intent === "INQUIRE_CATALOG") {
+    return renderCatalogueOverview(state);
+  }
+
+  // 3. Structured NLU Actions (Multi-Product Extraction, Quantity Update, Item Removal)
+  if (nlu.intent === "QUANTITY_UPDATE" && nlu.quantityUpdate) {
+    const { quantity, targetProductId } = nlu.quantityUpdate;
+    if (state.orderDraft.items.length > 0) {
+      const targetIdx = targetProductId
+        ? state.orderDraft.items.findIndex((i) => i.productId === targetProductId)
+        : state.orderDraft.items.length - 1;
+
+      const idxToUpdate = targetIdx >= 0 ? targetIdx : state.orderDraft.items.length - 1;
+      state.orderDraft.items[idxToUpdate].quantity = quantity;
+      state.step = "ORDER_CONFIRM_ITEMS";
+      return renderOrderConfirmItems(state);
+    }
+  }
+
+  if (nlu.intent === "REMOVE_FROM_CART" && nlu.removedProductId) {
+    state.orderDraft.items = state.orderDraft.items.filter((i) => i.productId !== nlu.removedProductId);
+    state.step = "ORDER_CONFIRM_ITEMS";
+    return renderOrderConfirmItems(state);
+  }
+
+  if (nlu.intent === "ADD_TO_CART" && nlu.products.length > 0) {
+    for (const item of nlu.products) {
+      const prod = findProductById(item.productId);
+      if (!prod) continue;
+
+      const existingIndex = state.orderDraft.items.findIndex((i) => i.productId === item.productId);
+      if (existingIndex >= 0) {
+        state.orderDraft.items[existingIndex].quantity = item.quantity;
+      } else {
+        state.orderDraft.items.push({
+          productId: prod.id,
+          quantity: item.quantity,
+          cheeseAddon: item.cheeseAddon || false,
+        });
+      }
+    }
+
+    state.step = "ORDER_CONFIRM_ITEMS";
+    return renderOrderConfirmItems(state);
+  }
+
+  // 4. Deterministic Button Prefix Handlers
   if (trimmed.startsWith(CATEGORY_BUTTON_PREFIX)) {
     const catId = trimmed.slice(CATEGORY_BUTTON_PREFIX.length);
     if (catId === "custom_cakes") {
@@ -191,7 +238,6 @@ export function processCakestryTurn(
     return renderCategoryView(state, catId);
   }
 
-  // Product tap (e.g. prod:choc_dream)
   if (trimmed.startsWith(PRODUCT_BUTTON_PREFIX)) {
     const prodId = trimmed.slice(PRODUCT_BUTTON_PREFIX.length);
     const prod = findProductById(prodId);
@@ -202,7 +248,6 @@ export function processCakestryTurn(
     }
   }
 
-  // Quantity tap (e.g. qty:1)
   if (trimmed.startsWith(QUANTITY_BUTTON_PREFIX) || (state.step === "PRODUCT_QUANTITY" && !isNaN(parseInt(trimmed, 10)))) {
     const qtyNum = trimmed.startsWith(QUANTITY_BUTTON_PREFIX)
       ? parseInt(trimmed.slice(QUANTITY_BUTTON_PREFIX.length), 10)
@@ -213,9 +258,7 @@ export function processCakestryTurn(
         handled: true,
         state,
         reply: {
-          text: state.language === "ur"
-            ? "براہِ کرم صحیح تعداد لکھیں (مثلاً 1، 2، 3)۔"
-            : "Please enter a valid quantity (e.g., 1, 2, 3).",
+          text: state.language === "ur" ? "براہِ کرم صحیح تعداد لکھیں (مثلاً 1، 2، 3)۔" : "Please enter a valid quantity (e.g., 1, 2, 3).",
         },
       };
     }
@@ -223,21 +266,24 @@ export function processCakestryTurn(
     const prodId = state.selectedProduct;
     const prod = prodId ? findProductById(prodId) : undefined;
     if (prod) {
-      state.orderDraft.pendingQuantityProduct = prodId;
+      // Strictly update/add only selected product
+      const existingIdx = state.orderDraft.items.findIndex((i) => i.productId === prod.id);
+      if (existingIdx >= 0) {
+        state.orderDraft.items[existingIdx].quantity = qtyNum;
+      } else {
+        state.orderDraft.items.push({ productId: prod.id, quantity: qtyNum, cheeseAddon: false });
+      }
 
       if (prod.allowCheeseAddon) {
         state.step = "CHEESE_ADDON";
-        state.orderDraft.items.push({ productId: prod.id, quantity: qtyNum, cheeseAddon: false });
         return renderCheeseAddonPrompt(state, prod, qtyNum);
       } else {
-        state.orderDraft.items.push({ productId: prod.id, quantity: qtyNum, cheeseAddon: false });
         state.step = "ORDER_CONFIRM_ITEMS";
-        return renderOrderConfirmItems(state, prod, qtyNum);
+        return renderOrderConfirmItems(state);
       }
     }
   }
 
-  // Cheese Addon response
   if (state.step === "CHEESE_ADDON" && (trimmed.startsWith(ADDON_PREFIX) || lowered.includes("yes") || lowered.includes("no") || lowered.includes("چیز"))) {
     const wantsCheese = trimmed === `${ADDON_PREFIX}yes` || lowered.includes("yes") || lowered.includes("ہاں") || lowered.includes("چیز");
     const lastItemIndex = state.orderDraft.items.length - 1;
@@ -245,18 +291,14 @@ export function processCakestryTurn(
       state.orderDraft.items[lastItemIndex].cheeseAddon = wantsCheese;
     }
     state.step = "ORDER_CONFIRM_ITEMS";
-    const lastItem = state.orderDraft.items[lastItemIndex];
-    const prod = lastItem ? findProductById(lastItem.productId) : undefined;
-    return renderOrderConfirmItems(state, prod, lastItem ? lastItem.quantity : 1);
+    return renderOrderConfirmItems(state);
   }
 
-  // Add more items tap
   if (trimmed === `${ACTION_BUTTON_PREFIX}add_more` || lowered.includes("add more")) {
     state.step = "MAIN_MENU";
     return renderMainMenu(state);
   }
 
-  // Checkout tap
   if (trimmed === `${ACTION_BUTTON_PREFIX}checkout` || lowered.includes("checkout")) {
     if (!state.orderDraft.items.length) {
       state.step = "MAIN_MENU";
@@ -266,7 +308,6 @@ export function processCakestryTurn(
     return renderCheckoutDeliveryType(state);
   }
 
-  // Delivery type choice
   if (state.step === "CHECKOUT_DELIVERY_TYPE" && (trimmed.startsWith(OPTION_PREFIX) || lowered.includes("delivery") || lowered.includes("pickup") || lowered.includes("ڈیلیوری"))) {
     const isPickup = trimmed === `${OPTION_PREFIX}pickup` || lowered.includes("pickup");
     state.orderDraft.deliveryType = isPickup ? "PICKUP" : "DELIVERY";
@@ -274,14 +315,12 @@ export function processCakestryTurn(
     return renderCheckoutNamePrompt(state);
   }
 
-  // Name step
   if (state.step === "CHECKOUT_NAME" && trimmed.length >= 2) {
     state.orderDraft.customerName = trimmed;
     state.step = "CHECKOUT_PHONE";
     return renderCheckoutPhonePrompt(state, waPhone);
   }
 
-  // Phone step
   if (state.step === "CHECKOUT_PHONE") {
     state.orderDraft.phone = trimmed === "use_wa_number" || trimmed === `${OPTION_PREFIX}use_wa_phone` ? waPhone : trimmed;
     if (state.orderDraft.deliveryType === "DELIVERY") {
@@ -293,21 +332,19 @@ export function processCakestryTurn(
     }
   }
 
-  // Address step
   if (state.step === "CHECKOUT_ADDRESS" && trimmed.length >= 3) {
     state.orderDraft.deliveryAddress = trimmed;
     state.step = "CHECKOUT_DATE_TIME";
     return renderCheckoutDateTimePrompt(state);
   }
 
-  // Date & Time step -> produces final Order Summary & SadaPay instructions
   if (state.step === "CHECKOUT_DATE_TIME" && trimmed.length >= 2) {
     state.orderDraft.dateTime = trimmed;
     state.step = "PAYMENT_VERIFICATION";
     return renderOrderSummaryAndPayment(state);
   }
 
-  // Custom Cake Steps
+  // Custom Cake Flow Steps
   if (state.step === "CUSTOM_CAKE_WEIGHT") {
     if (!state.customCakeDraft) state.customCakeDraft = {};
     state.customCakeDraft.weight = trimmed;
@@ -335,40 +372,34 @@ export function processCakestryTurn(
     return renderCustomCakeComplete(state);
   }
 
-  // Check if text matches a category or product directly
-  const matchedProd = findProductByName(trimmed);
+  // Single Product / Category Name Direct Text Match
+  const matchedProd = resolveProductAlias(trimmed);
   if (matchedProd) {
     state.selectedProduct = matchedProd.id;
     state.step = "PRODUCT_QUANTITY";
     return renderProductQuantityPrompt(state, matchedProd);
   }
 
-  const matchedCat = CATEGORIES.find(
-    (c) => c.nameEn.toLowerCase().includes(lowered) || c.nameUr.toLowerCase().includes(lowered) || c.id === lowered
-  );
-  if (matchedCat) {
-    if (matchedCat.id === "custom_cakes") {
-      state.step = "CUSTOM_CAKE_WEIGHT";
-      state.customCakeDraft = {};
-      return renderCustomCakeWeight(state);
-    }
-    if (matchedCat.id === "my_order") {
-      state.step = "MY_ORDER";
-      return renderMyOrder(state, waPhone);
-    }
-    if (matchedCat.id === "location") {
-      return renderLocationInfo(state);
-    }
-    state.selectedCategory = matchedCat.id;
-    state.step = "CATEGORY_VIEW";
-    return renderCategoryView(state, matchedCat.id);
-  }
-
-  // If not handled deterministically, return false so LLM NLU can answer general questions!
+  // General Fallback -> LLM handles natural text
   return { handled: false, state, reply: { text: "" } };
 }
 
 // ------------------------------------------------------------- View Renderers --
+
+function renderWelcomeWithLanguageButtons(state: CakestryStateData): ActionOutcome {
+  const text =
+    "Assalam-o-Alaikum! 👋\n" +
+    "Welcome to *Cakestry Bakery* 🎂\n" +
+    "Where every bite creates a sweet memory ✨\n\n" +
+    "Please select your preferred language below / براہِ کرم زبان منتخب کریں:";
+
+  const buttons: ReplyButton[] = [
+    { id: "lang:en", title: "English 🇬🇧" },
+    { id: "lang:ur", title: "اردو 🇵🇰" },
+  ];
+
+  return { handled: true, state, reply: { text, buttons } };
+}
 
 function renderMainMenu(state: CakestryStateData): ActionOutcome {
   const isUr = state.language === "ur";
@@ -400,27 +431,13 @@ function renderCategoryView(state: CakestryStateData, catId: string): ActionOutc
   const cat = CATEGORIES.find((c) => c.id === catId);
   const products = findProductsByCategory(catId);
 
-  let text = isUr
-    ? `🎂 *${cat?.nameUr || "مصنوعات"}*\n\n`
-    : `🎂 *${cat?.nameEn || "Products"}*\n\n`;
+  let text = isUr ? `🎂 *${cat?.nameUr || "مصنوعات"}*\n\n` : `🎂 *${cat?.nameEn || "Products"}*\n\n`;
 
   products.forEach((p, idx) => {
     text += `${idx + 1}. *${isUr ? p.nameUr : p.nameEn}* — Rs. ${p.price.toLocaleString()}\n`;
   });
 
-  text += isUr
-    ? "\nآپ کون سا آرڈر کرنا چاہتے ہیں؟ کیک منتخب کریں یا بٹن دبائیں:"
-    : "\nWhich product would you like to order? Select below:";
-
-  const buttons: ReplyButton[] = products.slice(0, 2).map((p) => ({
-    id: `${PRODUCT_BUTTON_PREFIX}${p.id}`,
-    title: (isUr ? p.nameUr : p.nameEn).slice(0, 20),
-  }));
-
-  buttons.push({
-    id: `${ACTION_BUTTON_PREFIX}back_categories`,
-    title: isUr ? "⬅️ مین مینو" : "⬅️ Main Menu",
-  });
+  text += isUr ? "\nآپ کون سا آرڈر کرنا چاہتے ہیں؟ کیک منتخب کریں یا بٹن دبائیں:" : "\nWhich product would you like to order? Select below:";
 
   const listRows: ListRow[] = products.map((p) => ({
     id: `${PRODUCT_BUTTON_PREFIX}${p.id}`,
@@ -433,8 +450,8 @@ function renderCategoryView(state: CakestryStateData, catId: string): ActionOutc
     state,
     reply: {
       text,
-      list: products.length > 2 ? { label: isUr ? "مصنوعات منتخب کریں" : "Select Product", rows: listRows } : undefined,
-      buttons: products.length <= 2 ? buttons : [{ id: `${ACTION_BUTTON_PREFIX}back_categories`, title: isUr ? "⬅️ مین مینو" : "⬅️ Main Menu" }],
+      list: { label: isUr ? "مصنوعات منتخب کریں" : "Select Product", rows: listRows },
+      buttons: [{ id: `${ACTION_BUTTON_PREFIX}back_categories`, title: isUr ? "⬅️ مین مینو" : "⬅️ Main Menu" }],
     },
   };
 }
@@ -451,11 +468,7 @@ function renderProductQuantityPrompt(state: CakestryStateData, prod: CakestryPro
     { id: `${QUANTITY_BUTTON_PREFIX}3`, title: "3️⃣ Three" },
   ];
 
-  return {
-    handled: true,
-    state,
-    reply: { text, buttons },
-  };
+  return { handled: true, state, reply: { text, buttons } };
 }
 
 function renderCheeseAddonPrompt(state: CakestryStateData, prod: CakestryProduct, qty: number): ActionOutcome {
@@ -472,22 +485,18 @@ function renderCheeseAddonPrompt(state: CakestryStateData, prod: CakestryProduct
   return { handled: true, state, reply: { text, buttons } };
 }
 
-function renderOrderConfirmItems(state: CakestryStateData, prod?: CakestryProduct, qty: number = 1): ActionOutcome {
+function renderOrderConfirmItems(state: CakestryStateData): ActionOutcome {
   const isUr = state.language === "ur";
   const totals = calculateOrderTotals(state.orderDraft.items);
 
-  let text = isUr
-    ? `✅ *آرڈر کارٹ میں شامل ہو گیا!* 🛒\n\n`
-    : `✅ *Added to your Cart!* 🛒\n\n`;
+  let text = isUr ? `✅ *آرڈر کارٹ:* 🛒\n\n` : `✅ *Order Summary / Cart:* 🛒\n\n`;
 
   totals.itemized.forEach((item) => {
     const cheeseStr = item.cheeseAddon ? (isUr ? " (+چیز)" : " (+Extra Cheese)") : "";
     text += `• ${item.quantity}x *${isUr ? item.product.nameUr : item.product.nameEn}*${cheeseStr} = Rs. ${item.lineTotal.toLocaleString()}\n`;
   });
 
-  text += isUr
-    ? `\n*کل رقم (Subtotal): Rs. ${totals.subtotal.toLocaleString()}*`
-    : `\n*Subtotal: Rs. ${totals.subtotal.toLocaleString()}*`;
+  text += isUr ? `\n*کل رقم (Subtotal): Rs. ${totals.subtotal.toLocaleString()}*` : `\n*Subtotal: Rs. ${totals.subtotal.toLocaleString()}*`;
 
   const buttons: ReplyButton[] = [
     { id: `${ACTION_BUTTON_PREFIX}add_more`, title: isUr ? "➕ مزید شامل کریں" : "➕ Add More Items" },
@@ -558,9 +567,7 @@ function renderOrderSummaryAndPayment(state: CakestryStateData): ActionOutcome {
   state.orderDraft.deliveryFee = totals.deliveryFee;
   state.orderDraft.total = totals.total;
 
-  let text = isUr
-    ? `📋 *کیکسٹری بیکری — آرڈر رسیپٹ*\n\n`
-    : `📋 *CAKESTRY BAKERY — ORDER SUMMARY*\n\n`;
+  let text = isUr ? `📋 *کیکسٹری بیکری — آرڈر رسیپٹ*\n\n` : `📋 *CAKESTRY BAKERY — ORDER SUMMARY*\n\n`;
 
   text += isUr ? `👤 *نام:* ${state.orderDraft.customerName}\n` : `👤 *Name:* ${state.orderDraft.customerName}\n`;
   text += isUr ? `📞 *فون:* ${state.orderDraft.phone}\n` : `📞 *Phone:* ${state.orderDraft.phone}\n`;
@@ -652,12 +659,12 @@ function renderCustomCakeComplete(state: CakestryStateData): ActionOutcome {
       `وزن: ${draft.weight}\n` +
       `ذائقہ: ${draft.flavor}\n` +
       `ایونٹ وقت: ${draft.dateTime}\n\n` +
-      `ہماری بیکری ٹیم آپ کی خواہش اور ڈیزائن کے مطابق قیمت اور ڈیزائن کنفرم کرنے کے لیے فوراً رابطہ کرے گی۔ 🎂`
+      `ہماری بیکری ٹیم (0329-3110006) آپ کی خواہش کے مطابق قیمت اور ڈیزائن کنفرم کرنے کے لیے فوراً رابطہ کرے گی۔ 🎂`
     : `✅ *Custom Cake Request Received!* 🎨\n\n` +
       `Weight: ${draft.weight}\n` +
       `Flavor: ${draft.flavor}\n` +
       `Event Date/Time: ${draft.dateTime}\n\n` +
-      `Our master baker will review your request and contact you immediately with pricing & customization details. 🎂`;
+      `Our master baker will review your request and contact you immediately at 0329-3110006! 🎂`;
 
   return {
     handled: true,
@@ -710,25 +717,25 @@ function renderCatalogueOverview(state: CakestryStateData): ActionOutcome {
   const text = isUr
     ? `🎂 *کیکسٹری بیکری مینو اور ورائٹی* 🍰\n\n` +
       `ہمارے پاس تمام تازگی سے تیار کردہ بیکری آئٹمز دستیاب ہیں:\n` +
-      `1. 🎂 سیگنیچر کیکس (چاکلیٹ فج، ریڈ ویلوٹ، پائن ایپل، لوٹس، تھری ملکی...)\n` +
-      `2. 🧁 کپ کیکس (نوٹیلا، لوٹس، ریڈ ویلوٹ...)\n` +
-      `3. 🍫 پریمیئم براؤنیز (نوٹیلا، والنٹ...)\n` +
-      `4. 🍩 ڈونٹس اور سلائس (چاکلیٹ ڈونٹس، چیز کیک سلائس...)\n` +
-      `5. 🥐 پیسٹریز (مولٹن لاوا، بلیک فارسٹ، تھری ملکی...)\n` +
-      `6. 🌯 ریپس اور سینڈوچ (کلب سینڈوچ، بی بی کیو ریپ، زنگر رول...)\n` +
-      `7. 🍰 ڈیزرٹس اور سنیکس (کریم پفس، چیز بالز...)\n` +
-      `8. 🎨 کسٹم کیکس (اپنی مرضی کا ڈیزائن اور وزن)\n\n` +
-      `نیچے زمرہ منتخب کر کے تمام پروڈکٹس اور قیمتیں دیکھیں۔ 👇`
+      `1. 🎂 سیگنیچر کیکس (چاکلیٹ فج، ریڈ ویلوٹ، پائن ایپل، لوٹس...)\n` +
+      `2. 🧁 کپ کیکس (نوٹیلا، لوٹس...)\n` +
+      `3. 🍫 پریمیئم براؤنیز\n` +
+      `4. 🍩 ڈونٹس اور سلائس\n` +
+      `5. 🥐 پیسٹریز\n` +
+      `6. 🌯 ریپس اور سینڈوچ\n` +
+      `7. 🍰 ڈیزرٹس اور سنیکس (کریم پفس...)\n` +
+      `8. 🎨 کسٹم کیکس\n\n` +
+      `زمرہ منتخب کر کے تمام پروڈکٹس اور قیمتیں دیکھیں۔ 👇`
     : `🎂 *Cakestry Bakery Menu & Varieties* 🍰\n\n` +
       `We offer a rich variety of freshly baked goods:\n` +
-      `1. 🎂 Signature Cakes (Chocolate Fudge, Red Velvet, Pineapple, Lotus, Three Milk...)\n` +
-      `2. 🧁 Cupcakes (Nutella, Lotus, Red Velvet...)\n` +
-      `3. 🍫 Premium Brownies (Nutella, Walnut...)\n` +
-      `4. 🍩 Donuts & Slices (Glazed Donuts, Cheesecake Slices...)\n` +
-      `5. 🥐 Pastries (Molten Lava, Black Forest, Three Milk...)\n` +
-      `6. 🌯 Wraps & Sandwiches (Club Sandwich, BBQ Wrap, Zinger Roll...)\n` +
-      `7. 🍰 Desserts & Savories (Cream Puffs, Cheese Balls...)\n` +
-      `8. 🎨 Custom Cakes (Custom Theme & Servings)\n\n` +
+      `1. 🎂 Signature Cakes (Chocolate Fudge, Red Velvet, Pineapple, Lotus...)\n` +
+      `2. 🧁 Cupcakes\n` +
+      `3. 🍫 Premium Brownies\n` +
+      `4. 🍩 Donuts & Slices\n` +
+      `5. 🥐 Pastries\n` +
+      `6. 🌯 Wraps & Sandwiches\n` +
+      `7. 🍰 Desserts & Savories (Cream Puffs...)\n` +
+      `8. 🎨 Custom Cakes\n\n` +
       `Select a category below to explore products & prices! 👇`;
 
   const rows: ListRow[] = CATEGORIES.map((cat) => ({
