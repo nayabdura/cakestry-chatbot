@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import { notifyTeam } from "@/lib/notify";
-import { sendText } from "@/lib/whatsapp/client";
 
 export interface DailyBakeryReportData {
   summaryId: string;
@@ -32,6 +31,8 @@ export interface DailyBakeryReportData {
 
 /**
  * Generate or retrieve an official DailySummary snapshot for Asia/Karachi (11:00 PM PKT).
+ * Calculates real production sales & order metrics and stores snapshot in the database.
+ * Does NOT send outbound WhatsApp messages to any phone number.
  */
 export async function generateDailyBakeryReport(date?: Date): Promise<DailyBakeryReportData> {
   const now = date || new Date();
@@ -133,7 +134,7 @@ export async function generateDailyBakeryReport(date?: Date): Promise<DailyBaker
     orders,
   };
 
-  // Persist snapshot to DailySummary database table idempotently
+  // Persist snapshot strictly to DailySummary database table idempotently
   await prisma.dailySummary.upsert({
     where: { summaryId },
     update: {
@@ -176,7 +177,7 @@ export async function generateDailyBakeryReport(date?: Date): Promise<DailyBaker
     },
   }).catch((err) => console.warn("[report] DailySummary DB save error:", err));
 
-  // Upsert analytics_daily table as well
+  // Upsert analytics_daily table for main dashboard widgets
   const analyticsDate = new Date(`${pktDateStr}T00:00:00.000Z`);
   await prisma.analyticsDaily.upsert({
     where: {
@@ -213,32 +214,8 @@ export async function sendDailyBakeryReportToOwner(): Promise<{ success: boolean
   text += `🚚 *Delivery / Pickup:* ${data.deliveryOrders} Delivery / ${data.pickupOrders} Pickup\n`;
   text += `👤 *Unique Customers:* ${data.uniqueCustomers}\n`;
   text += `💰 *TOTAL NET SALES: Rs. ${data.netSales.toLocaleString()}*\n`;
-  text += `=====================================\n\n`;
 
-  text += `📋 *ALL ORDER DETAILS TODAY:*\n`;
-  if (data.orders.length === 0) {
-    text += `_No orders recorded today across any customer numbers._\n`;
-  } else {
-    data.orders.forEach((o, idx) => {
-      text += `\n*Order #${idx + 1}: Ref ${o.reference}*\n`;
-      text += `👤 *Customer Name:* ${o.customerName}\n`;
-      text += `📞 *Phone:* ${o.phone}\n`;
-      text += `💰 *Amount:* Rs. ${o.amount.toLocaleString()}\n`;
-      text += `📌 *Status:* ${o.stage}\n`;
-      if (o.requirements) {
-        text += `📝 *Items & Details:*\n${o.requirements.replace(/^/gm, "   ")}\n`;
-      }
-      text += `-------------------------------------\n`;
-    });
-  }
-
-  text += `\n✨ Automated Daily Summary generated at 11:00 PM PKT.`;
-
-  // Send WhatsApp report to Bakery Owner (0329-3110006)
-  const ownerWaId = "923293110006";
-  await sendText(ownerWaId, text).catch((e) => console.warn("[report] WhatsApp report failed:", e));
-
-  // Send Email report to Bakery Owner
+  // Internal team notification log (Zero WhatsApp messages sent!)
   await notifyTeam({
     department: "MARKETING",
     subject: `📊 DAILY SUMMARY ${data.summaryId} (${data.dateStr}) — Sales: Rs. ${data.netSales.toLocaleString()}`,
