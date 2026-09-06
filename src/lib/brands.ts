@@ -82,7 +82,7 @@ export const BRANDS: Record<Department, BrandProfile> = {
     contact: {
       phone: "0329-3110006",
       whatsapp: "0329-3110006",
-      email: "cakestrybakery@gmail.com",
+      email: "cakestry2026@gmail.com",
       address: "Jail Road, Bahawalnagar, Pakistan",
       city: "Bahawalnagar, Punjab, Pakistan",
       hours: "Every day, Monday to Sunday, 11:00 AM – 2:00 AM",
@@ -108,7 +108,7 @@ export const BRANDS: Record<Department, BrandProfile> = {
     contact: {
       phone: "0329-3110006",
       whatsapp: "0329-3110006",
-      email: "cakestrybakery@gmail.com",
+      email: "cakestry2026@gmail.com",
       address: "Jail Road, Bahawalnagar, Pakistan",
       city: "Bahawalnagar, Punjab, Pakistan",
       hours: "Every day, Monday to Sunday, 11:00 AM – 2:00 AM",
