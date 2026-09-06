@@ -11,6 +11,7 @@ import type { ReplyButton } from "./types";
 type Localised = Record<Language, string>;
 
 export const DEPARTMENT_BUTTON_PREFIX = "dept:";
+export const LANGUAGE_BUTTON_PREFIX = "lang:";
 export const ACTION_BUTTON_PREFIX = "act:";
 
 function pick(copy: Localised, language: Language): string {
@@ -44,11 +45,11 @@ export function welcomeMessage(language: Language): {
     footer: pick(WELCOME_FOOTER, language),
     buttons: [
       {
-        id: `${DEPARTMENT_BUTTON_PREFIX}MARKETING`,
+        id: `${LANGUAGE_BUTTON_PREFIX}en`,
         title: `🇬🇧 English`,
       },
       {
-        id: `${DEPARTMENT_BUTTON_PREFIX}INSTITUTE`,
+        id: `${LANGUAGE_BUTTON_PREFIX}ur`,
         title: `🇵🇰 Urdu`,
       },
     ],

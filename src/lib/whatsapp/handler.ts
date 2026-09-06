@@ -31,6 +31,7 @@ import {
 import {
   ACTION_BUTTON_PREFIX,
   DEPARTMENT_BUTTON_PREFIX,
+  LANGUAGE_BUTTON_PREFIX,
   busyNotice,
   captureCancelled,
   captureConfirmation,
@@ -159,10 +160,38 @@ async function route(message: InboundMessage): Promise<void> {
     return;
   }
 
+  // --- Language selection tap ------------------------------------------------
+  if (answer.startsWith(LANGUAGE_BUTTON_PREFIX)) {
+    const langCode = answer.slice(LANGUAGE_BUTTON_PREFIX.length);
+    const selectedLang: Language = langCode === "ur" ? "ur" : "en";
+    context.language = selectedLang;
+    context.department = "MARKETING";
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { department: "MARKETING", language: LANGUAGE_MAP[selectedLang] },
+    });
+    await prisma.whatsappContact.update({ where: { waId }, data: { department: "MARKETING" } }).catch(() => {});
+
+    const greetingText =
+      selectedLang === "ur"
+        ? "کیکسٹری بیکری بہاول نگر میں خوش آمدید! 🎂\n\nمیں آپ کا اے آئی اسسٹنٹ ہوں۔ آپ کیکس، قیمتیں، مینو، اوقاتِ کار کے بارے میں کچھ بھی پوچھ سکتے ہیں یا آرڈر درج کروا سکتے ہیں۔ ✨"
+        : "Welcome to Cakestry Bakery Bahawal Nagar! 🎂\n\nI'm your AI assistant. You can ask about our signature cakes, prices, menu, opening hours, or place an order! ✨";
+
+    const greetingButtons = [
+      { id: `${ACTION_BUTTON_PREFIX}capture`, title: selectedLang === "ur" ? "🎂 کیک آرڈر کریں" : "🎂 Order Cake" },
+      { id: `${ACTION_BUTTON_PREFIX}human`, title: selectedLang === "ur" ? "🙋 بیکری سپورٹ" : "🙋 Bakery Support" },
+      { id: `${ACTION_BUTTON_PREFIX}menu`, title: selectedLang === "ur" ? "🔄 مینو تبدیل کریں" : "🔄 Switch Menu" },
+    ];
+
+    await say(context, greetingText, { buttons: greetingButtons });
+    return;
+  }
+
   // --- Menu, department picking and switching -------------------------------
   if (answer.startsWith(DEPARTMENT_BUTTON_PREFIX)) {
-    const picked = asDepartment(answer.slice(DEPARTMENT_BUTTON_PREFIX.length));
-    if (picked) return greet(context, picked);
+    const picked = asDepartment(answer.slice(DEPARTMENT_BUTTON_PREFIX.length)) ?? "MARKETING";
+    return greet(context, picked);
   }
 
   if (answer === `${ACTION_BUTTON_PREFIX}menu` || MENU_WORDS.includes(lowered)) {
