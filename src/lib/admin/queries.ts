@@ -193,7 +193,7 @@ export async function dashboardStats(
       department === "INSTITUTE"
         ? Promise.resolve(null)
         : prisma.marketingLead.aggregate({
-            where: { stage: "WON" },
+            where: { estimatedValue: { not: null } },
             _sum: { estimatedValue: true },
           }),
       prisma.ticket.count({

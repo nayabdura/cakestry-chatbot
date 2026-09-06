@@ -4,16 +4,18 @@ import { requireAdmin } from "@/lib/session";
 import { safeQuery, sessionDepartment } from "@/lib/admin/queries";
 import { Callout, DbNotice, PageHeader, StatusBadge } from "@/components/admin/ui";
 import { Card } from "@/components/ui/card";
-import { MARKETING_SERVICES } from "@/data/marketing/services";
+import { PRODUCTS, CATEGORIES } from "@/lib/cakestry";
+import { syncCakestryProductsToDb } from "@/lib/sync-cakestry-products";
 
-export const metadata = { title: "Services" };
+export const metadata = { title: "Bakery Products" };
 
 export default async function ServicesPage() {
   const session = await requireAdmin("/admin/catalogue/services");
   if (sessionDepartment(session) === "INSTITUTE") notFound();
 
-  // The database is the live source; the file catalogue is the fallback so the
-  // page is still useful before the first `db:seed`.
+  // Sync latest catalogue products into DB on render if DB is missing items
+  await safeQuery(() => syncCakestryProductsToDb(), null);
+
   const { data: stored, error } = await safeQuery(
     () => prisma.marketingService.findMany({ orderBy: { sortOrder: "asc" } }),
     []
@@ -28,46 +30,43 @@ export default async function ServicesPage() {
         priceFrom: service.priceFrom ?? "—",
         priceModel: service.priceModel ?? "—",
         priceNote: service.priceNote ?? "",
-        features: service.features.length,
-        process: service.process.length,
         isActive: service.isActive,
       }))
-    : MARKETING_SERVICES.map((service) => ({
-        slug: service.slug,
-        name: service.name,
-        group: service.group,
-        tagline: service.tagline,
-        priceFrom: service.pricing.startingAt,
-        priceModel: service.pricing.model,
-        priceNote: service.pricing.note,
-        features: service.features.length,
-        process: service.process.length,
-        isActive: true,
-      }));
+    : PRODUCTS.map((p) => {
+        const cat = CATEGORIES.find((c) => c.id === p.categoryId);
+        return {
+          slug: p.id,
+          name: p.nameEn,
+          group: cat ? cat.nameEn : p.categoryId,
+          tagline: `${p.nameUr} — Rs. ${p.price.toLocaleString()} (${p.unit})`,
+          priceFrom: `Rs. ${p.price.toLocaleString()}`,
+          priceModel: p.unit,
+          priceNote: p.allowCheeseAddon ? "Cheese Add-On available" : "Standard price",
+          isActive: true,
+        };
+      });
 
   const groups = Array.from(new Set(services.map((s) => s.group)));
 
   return (
     <>
       <PageHeader
-        title="Bakery Products"
+        title="Cakestry Bakery Catalogue"
         department="MARKETING"
-        description="The Cakestry Bakery product catalogue the assistant answers from. Edits here change what customers are told."
+        description="Official list of signature cakes, cupcakes, brownies, pastries, wraps and desserts for Cakestry Bakery Bahawal Nagar."
       />
 
       {error && <DbNotice error={error} />}
 
-      <Callout title="Pricing is a placeholder">
-        Every figure below is an indicative starting point. The assistant is instructed never to
-        present these as final and always to offer a written quotation instead. Replace them once
-        the rate card is approved.
+      <Callout title="Single Source of Truth Catalogue">
+        All product names, prices and categories listed below are active in real-time across WhatsApp and Web AI Chatbot.
       </Callout>
 
       <div className="mt-6 space-y-8">
         {groups.map((group) => (
           <section key={group}>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {group}
+              {group} ({services.filter((s) => s.group === group).length} Items)
             </h2>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {services
@@ -84,24 +83,18 @@ export default async function ServicesPage() {
 
                     <dl className="mt-3 space-y-1 text-[11px]">
                       <div className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">From</dt>
-                        <dd className="font-medium">{service.priceFrom}</dd>
+                        <dt className="text-muted-foreground">Price</dt>
+                        <dd className="font-medium text-emerald-600 dark:text-emerald-400">{service.priceFrom}</dd>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">Model</dt>
+                        <dt className="text-muted-foreground">Unit</dt>
                         <dd className="text-right">{service.priceModel}</dd>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">Content</dt>
-                        <dd>
-                          {service.features} features · {service.process} steps
-                        </dd>
+                        <dt className="text-muted-foreground">Note</dt>
+                        <dd className="text-right text-muted-foreground">{service.priceNote}</dd>
                       </div>
                     </dl>
-
-                    <p className="mt-3 border-t pt-2 font-mono text-[10px] text-muted-foreground">
-                      {service.slug}
-                    </p>
                   </Card>
                 ))}
             </div>
