@@ -412,26 +412,38 @@ export function processCakestryTurn(
     return renderCheckoutDeliveryType(state);
   }
 
-  // Category Direct Text Match (e.g. "Donuts", "Show me your donuts", "Signature Cakes")
-  const matchedCat = CATEGORIES.find(
-    (c) =>
-      lowered.includes(c.id) ||
-      lowered.includes(c.nameEn.toLowerCase()) ||
-      lowered.includes(c.nameUr.toLowerCase()) ||
-      (c.id === "donuts_slices" && (lowered.includes("donut") || lowered.includes("donuts")))
-  );
-  if (matchedCat && !resolveProductAlias(trimmed)) {
-    state.selectedCategory = matchedCat.id;
-    state.step = "CATEGORY_VIEW";
-    return renderCategoryView(state, matchedCat.id);
-  }
-
-  // Single Product / Category Name Direct Text Match
+  // 1. Single Product Direct Text Match
   const matchedProd = resolveProductAlias(trimmed);
   if (matchedProd) {
     state.selectedProduct = matchedProd.id;
     state.step = "PRODUCT_QUANTITY";
     return renderProductQuantityPrompt(state, matchedProd);
+  }
+
+  // 2. Category Direct Text Match (e.g. "Donuts", "Show me your donuts", "Cupcakes", "Pastries", "Brownies")
+  const matchedCat = CATEGORIES.find(
+    (c) =>
+      lowered.includes(c.id) ||
+      lowered.includes(c.nameEn.toLowerCase()) ||
+      lowered.includes(c.nameUr.toLowerCase()) ||
+      (c.id === "signature_cakes" && (lowered.includes("signature cake") || lowered.includes("signature cakes") || lowered === "cake" || lowered === "cakes")) ||
+      (c.id === "cupcakes" && (lowered.includes("cupcake") || lowered.includes("cupcakes") || lowered.includes("cup cake") || lowered.includes("cup cakes"))) ||
+      (c.id === "brownies" && (lowered.includes("brownie") || lowered.includes("brownies"))) ||
+      (c.id === "donuts_slices" && (lowered.includes("donut") || lowered.includes("donuts") || lowered.includes("slice") || lowered.includes("slices"))) ||
+      (c.id === "pastries" && (lowered.includes("pastry") || lowered.includes("pastries"))) ||
+      (c.id === "wraps_sandwiches" && (lowered.includes("wrap") || lowered.includes("wraps") || lowered.includes("sandwich") || lowered.includes("sandwiches"))) ||
+      (c.id === "desserts_savories" && (lowered.includes("dessert") || lowered.includes("desserts") || lowered.includes("savory") || lowered.includes("savories"))) ||
+      (c.id === "custom_cakes" && (lowered.includes("custom cake") || lowered.includes("custom cakes") || lowered.includes("customized cake") || lowered.includes("customized cakes")))
+  );
+  if (matchedCat) {
+    if (matchedCat.id === "custom_cakes") {
+      state.step = "CUSTOM_CAKE_WEIGHT";
+      state.customCakeDraft = {};
+      return renderCustomCakeWeight(state);
+    }
+    state.selectedCategory = matchedCat.id;
+    state.step = "CATEGORY_VIEW";
+    return renderCategoryView(state, matchedCat.id);
   }
 
   // General Fallback -> LLM handles natural text
@@ -448,8 +460,8 @@ function renderWelcomeWithLanguageButtons(state: CakestryStateData): ActionOutco
     "Please select your preferred language below / براہِ کرم زبان منتخب کریں:";
 
   const buttons: ReplyButton[] = [
-    { id: "lang:en", title: "English 🇬🇧" },
-    { id: "lang:ur", title: "اردو 🇵🇰" },
+    { id: "lang:en", title: "English" },
+    { id: "lang:ur", title: "Urdu" },
   ];
 
   return { handled: true, state, reply: { text, buttons } };
