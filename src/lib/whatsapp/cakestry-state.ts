@@ -412,6 +412,20 @@ export function processCakestryTurn(
     return renderCheckoutDeliveryType(state);
   }
 
+  // Category Direct Text Match (e.g. "Donuts", "Show me your donuts", "Signature Cakes")
+  const matchedCat = CATEGORIES.find(
+    (c) =>
+      lowered.includes(c.id) ||
+      lowered.includes(c.nameEn.toLowerCase()) ||
+      lowered.includes(c.nameUr.toLowerCase()) ||
+      (c.id === "donuts_slices" && (lowered.includes("donut") || lowered.includes("donuts")))
+  );
+  if (matchedCat && !resolveProductAlias(trimmed)) {
+    state.selectedCategory = matchedCat.id;
+    state.step = "CATEGORY_VIEW";
+    return renderCategoryView(state, matchedCat.id);
+  }
+
   // Single Product / Category Name Direct Text Match
   const matchedProd = resolveProductAlias(trimmed);
   if (matchedProd) {
