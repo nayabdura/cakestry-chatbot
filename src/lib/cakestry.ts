@@ -345,6 +345,58 @@ export function findProductByName(name: string): CakestryProduct | undefined {
   return resolveProductAlias(name);
 }
 
+export function matchCategory(input: string): CakestryCategory | undefined {
+  if (!input) return undefined;
+
+  // Strip emojis, brackets, and extra punctuation
+  const clean = input
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+    .replace(/[^\w\s\u0600-\u06FF]/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (!clean) return undefined;
+
+  // 1. Direct equality on ID, English Name, or Urdu Name
+  for (const cat of CATEGORIES) {
+    if (
+      clean === cat.id.toLowerCase() ||
+      clean === cat.nameEn.toLowerCase() ||
+      clean === cat.nameUr.toLowerCase()
+    ) {
+      return cat;
+    }
+  }
+
+  // 2. Exact word boundaries or robust keywords
+  if (/\b(pastry|pastries)\b/i.test(clean) || clean.includes("پیسٹری")) {
+    return CATEGORIES.find((c) => c.id === "pastries");
+  }
+  if (/\b(cupcake|cupcakes|cup cake|cup cakes)\b/i.test(clean) || clean.includes("کپ کیک")) {
+    return CATEGORIES.find((c) => c.id === "cupcakes");
+  }
+  if (/\b(brownie|brownies)\b/i.test(clean) || clean.includes("براؤنی")) {
+    return CATEGORIES.find((c) => c.id === "brownies");
+  }
+  if (/\b(donut|donuts|doughnut|doughnuts|slice|slices)\b/i.test(clean) || clean.includes("ڈونٹ") || clean.includes("سلائس")) {
+    return CATEGORIES.find((c) => c.id === "donuts_slices");
+  }
+  if (/\b(wrap|wraps|sandwich|sandwiches)\b/i.test(clean) || clean.includes("ریپ") || clean.includes("سینڈوچ")) {
+    return CATEGORIES.find((c) => c.id === "wraps_sandwiches");
+  }
+  if (/\b(dessert|desserts|savory|savories|cream puff|puff|puffs)\b/i.test(clean) || clean.includes("ڈیزرٹ") || clean.includes("سنیک")) {
+    return CATEGORIES.find((c) => c.id === "desserts_savories");
+  }
+  if (/\b(custom|customized|custom cake|custom cakes|customized cake|customized cakes)\b/i.test(clean) || clean.includes("کسٹم")) {
+    return CATEGORIES.find((c) => c.id === "custom_cakes");
+  }
+  if (/\b(signature cake|signature cakes|cake|cakes|birthday cake)\b/i.test(clean) || clean.includes("کیک")) {
+    return CATEGORIES.find((c) => c.id === "signature_cakes");
+  }
+
+  return undefined;
+}
+
 export interface OrderItemState {
   productId: string;
   quantity: number;

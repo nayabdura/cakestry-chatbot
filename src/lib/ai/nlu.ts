@@ -1,4 +1,4 @@
-import { PRODUCTS, findProductById, resolveProductAlias, type CakestryProduct } from "@/lib/cakestry";
+import { PRODUCTS, findProductById, resolveProductAlias, matchCategory, type CakestryProduct } from "@/lib/cakestry";
 import type { Language } from "@/lib/i18n";
 import { config } from "@/lib/config";
 
@@ -51,7 +51,7 @@ export function detectLanguageChangeIntent(text: string): { isLanguageChange: bo
   if (lowered === "lang:en" || lowered === "english" || lowered === "inglish") {
     return { isLanguageChange: true, targetLanguage: "en" };
   }
-  if (lowered === "lang:ur" || lowered === "urdu" || lowered === "urdo") {
+  if (lowered === "lang:ur" || lowered === "urdu" || lowered === "urdo" || lowered === "اردو") {
     return { isLanguageChange: true, targetLanguage: "ur" };
   }
 
@@ -73,6 +73,8 @@ export function detectLanguageChangeIntent(text: string): { isLanguageChange: bo
     "english me baat",
     "english mein baat",
     "mujhe english",
+    "انگلیش",
+    "انگلش",
   ];
 
   const urRegex = /\b(urdu|urdo)\b/i;
@@ -91,6 +93,9 @@ export function detectLanguageChangeIntent(text: string): { isLanguageChange: bo
     "urdu me baat",
     "urdu mein baat",
     "mujhe urdu",
+    "اردو",
+    "اردو میں",
+    "اردو میں بات",
   ];
 
   const hasEn = enRegex.test(lowered) || enPhrases.some((p) => lowered.includes(p));
@@ -108,7 +113,7 @@ export function detectLanguageChangeIntent(text: string): { isLanguageChange: bo
 
 /**
  * Main NLU Entry Point
- * Tries OpenAI ChatGPT JSON extraction first if configured, then falls back to fast offline rule-based parser.
+ * Fast deterministic recognition runs first, then OpenAI ChatGPT JSON extraction, then fallback parser.
  */
 export async function parseCustomerInputNLU(
   input: string,
@@ -120,13 +125,50 @@ export async function parseCustomerInputNLU(
     return createEmptyNlu(trimmed);
   }
 
-  // 0. High Priority Language Change
+  const isUrdu = /[\u0600-\u06FF]/.test(trimmed);
+  const lang: Language = isUrdu ? "ur" : "en";
+
+  // 0a. Deterministic WhatsApp Interactive Button / List Row Payloads
+  if (trimmed.startsWith("cat:")) {
+    return { intent: "SELECT_CATEGORY", language: lang, products: [], rawText: trimmed };
+  }
+  if (trimmed.startsWith("prod:")) {
+    return { intent: "SELECT_PRODUCT", language: lang, products: [], rawText: trimmed };
+  }
+  if (trimmed.startsWith("qty:")) {
+    return { intent: "QUANTITY_UPDATE", language: lang, products: [], rawText: trimmed };
+  }
+  if (trimmed.startsWith("addon:")) {
+    return { intent: "PROVIDE_DETAILS", language: lang, products: [], rawText: trimmed };
+  }
+  if (trimmed.startsWith("btn:menu") || trimmed.startsWith("btn:back_categories")) {
+    return { intent: "INQUIRE_CATALOG", language: lang, products: [], rawText: trimmed };
+  }
+  if (trimmed.startsWith("btn:checkout")) {
+    return { intent: "CHECKOUT", language: lang, products: [], rawText: trimmed };
+  }
+  if (trimmed.startsWith("btn:human")) {
+    return { intent: "HUMAN_ESCALATE", language: lang, products: [], rawText: trimmed };
+  }
+
+  // 0b. High Priority Language Change
   const langChange = detectLanguageChangeIntent(trimmed);
   if (langChange.isLanguageChange && langChange.targetLanguage) {
     return {
       intent: "LANGUAGE_CHANGE",
       targetLanguage: langChange.targetLanguage,
       language: langChange.targetLanguage,
+      products: [],
+      rawText: trimmed,
+    };
+  }
+
+  // 0c. Category Direct Match (e.g. "Pastries", "🥐 Pastries", "Brownies", "Donuts")
+  const catMatch = matchCategory(trimmed);
+  if (catMatch) {
+    return {
+      intent: "SELECT_CATEGORY",
+      language: lang,
       products: [],
       rawText: trimmed,
     };
@@ -283,6 +325,17 @@ export function parseDeterministicNLU(
   // Check for Cancellation
   if (lowered.includes("cancel order") || lowered.includes("cancel my order") || lowered.includes("order cancel")) {
     return { intent: "CANCEL_ORDER", language, products: [], rawText: trimmed };
+  }
+
+  // Deterministic button prefixes
+  if (trimmed.startsWith("cat:")) return { intent: "SELECT_CATEGORY", language, products: [], rawText: trimmed };
+  if (trimmed.startsWith("prod:")) return { intent: "SELECT_PRODUCT", language, products: [], rawText: trimmed };
+  if (trimmed.startsWith("qty:")) return { intent: "QUANTITY_UPDATE", language, products: [], rawText: trimmed };
+
+  // Category match
+  const catMatch = matchCategory(trimmed);
+  if (catMatch) {
+    return { intent: "SELECT_CATEGORY", language, products: [], rawText: trimmed };
   }
 
   // Check for Catalogue / Menu Inquiry
