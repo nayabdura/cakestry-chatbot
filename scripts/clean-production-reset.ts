@@ -64,8 +64,12 @@ export async function cleanProductionDataReset() {
   }
 }
 
-if (require.main === module) {
+if (process.argv[1] && process.argv[1].includes("clean-production-reset")) {
   cleanProductionDataReset()
     .then(() => prisma.$disconnect())
-    .catch(() => prisma.$disconnect());
+    .catch((err) => {
+      console.error(err);
+      prisma.$disconnect();
+      process.exit(1);
+    });
 }

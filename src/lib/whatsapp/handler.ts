@@ -108,7 +108,23 @@ async function route(message: InboundMessage): Promise<void> {
   const storedCapture = conversation.capture ? (conversation.capture as unknown as CakestryStateData) : null;
   const isPaymentStep = storedCapture?.step === "PAYMENT_VERIFICATION";
 
-  if (message.kind === "media" || (isPaymentStep && (lowered.includes("sadapay") || lowered.includes("trx") || lowered.includes("transaction")))) {
+  const isPaymentProof =
+    message.kind === "media" ||
+    (isPaymentStep &&
+      (lowered.includes("sadapay") ||
+        lowered.includes("trx") ||
+        lowered.includes("transaction") ||
+        lowered.includes("paid") ||
+        lowered.includes("payment") ||
+        lowered.includes("sent") ||
+        lowered.includes("done") ||
+        lowered.includes("transfer") ||
+        lowered.includes("ejaz") ||
+        lowered.includes("ahmad") ||
+        lowered.includes("bhej") ||
+        /\b\d{3,}\b/.test(lowered)));
+
+  if (isPaymentProof) {
     const expectedTotal = storedCapture?.orderDraft.total || 0;
     const mediaContent = message.text || message.mediaKind || "SadaPay Payment Receipt";
 
