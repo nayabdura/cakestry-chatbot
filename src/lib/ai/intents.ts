@@ -32,11 +32,16 @@ const ESCALATION_TRIGGERS = [
   "legal", "shikayat", "baat karni hai", "baat karwao", "banda", "insan se baat",
 ];
 
+import { detectLanguageChangeIntent } from "@/lib/ai/nlu";
+
 /**
  * Should this exchange be escalated to a human, with a tracking ticket?
  * Used by the chat route to attach a ticket reference to the reply.
  */
 export function shouldEscalate(message: string): boolean {
+  if (detectLanguageChangeIntent(message).isLanguageChange) {
+    return false;
+  }
   const text = normalise(message);
   return ESCALATION_TRIGGERS.some((trigger) => text.includes(trigger));
 }

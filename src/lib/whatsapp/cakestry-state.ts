@@ -114,7 +114,6 @@ export function processCakestryTurn(
   nluInput?: StructuredNluOutput
 ): ActionOutcome {
   let state = currentState || initCakestryState(language);
-  state.language = language;
   state.updatedAt = new Date().toISOString();
 
   const trimmed = input.trim();
@@ -124,34 +123,56 @@ export function processCakestryTurn(
   const currentCartProductIds = state.orderDraft.items.map((i) => i.productId);
   const nlu = nluInput || parseDeterministicNLU(trimmed, state.step, currentCartProductIds);
 
-  // 1. Language Selection Triggers
-  if (trimmed.startsWith("lang:")) {
-    const langCode = trimmed.slice(5);
-    state.language = langCode === "ur" ? "ur" : "en";
-    state.step = "MAIN_MENU";
-    return renderMainMenu(state);
+  // 1. Language Change Handling (Highest Priority — Preserves Cart and Active Step!)
+  if (nlu.intent === "LANGUAGE_CHANGE" || trimmed.startsWith("lang:")) {
+    const newLang: Language = trimmed.startsWith("lang:")
+      ? trimmed.slice(5) === "ur" ? "ur" : "en"
+      : nlu.targetLanguage || language;
+
+    state.language = newLang;
+
+    // Render current step in newly selected language
+    switch (state.step) {
+      case "WELCOME":
+      case "LANGUAGE_SELECTION":
+      case "MAIN_MENU":
+        state.step = "MAIN_MENU";
+        return renderMainMenu(state);
+      case "CATEGORY_VIEW":
+        if (state.selectedCategory) return renderCategoryView(state, state.selectedCategory);
+        state.step = "MAIN_MENU";
+        return renderMainMenu(state);
+      case "PRODUCT_QUANTITY":
+        if (state.selectedProduct) {
+          const prod = findProductById(state.selectedProduct);
+          if (prod) return renderProductQuantityPrompt(state, prod);
+        }
+        state.step = "MAIN_MENU";
+        return renderMainMenu(state);
+      case "ORDER_CONFIRM_ITEMS":
+        return renderOrderConfirmItems(state);
+      case "CHECKOUT_DELIVERY_TYPE":
+        return renderCheckoutDeliveryType(state);
+      case "CHECKOUT_NAME":
+        return renderCheckoutNamePrompt(state);
+      case "CHECKOUT_PHONE":
+        return renderCheckoutPhonePrompt(state, waPhone);
+      case "CHECKOUT_ADDRESS":
+        return renderCheckoutAddressPrompt(state);
+      case "CHECKOUT_DATE_TIME":
+        return renderCheckoutDateTimePrompt(state);
+      case "PAYMENT_VERIFICATION":
+        return renderOrderSummaryAndPayment(state);
+      default:
+        state.step = "MAIN_MENU";
+        return renderMainMenu(state);
+    }
   }
 
-  if (state.step === "WELCOME") {
-    state.step = "LANGUAGE_SELECTION";
-    return renderWelcomeWithLanguageButtons(state);
-  }
+  // Set default language if state was newly created and no language change explicitly occurred
+  state.language = state.language || language;
 
-  // 2. Global Triggers (Menu, Start, Human Support, Order Track)
-  if (
-    lowered === "menu" ||
-    lowered === "start" ||
-    lowered === "restart" ||
-    lowered === "main menu" ||
-    trimmed === `${ACTION_BUTTON_PREFIX}menu` ||
-    trimmed === `${ACTION_BUTTON_PREFIX}back_categories`
-  ) {
-    state.step = "MAIN_MENU";
-    state.selectedCategory = undefined;
-    state.selectedProduct = undefined;
-    return renderMainMenu(state);
-  }
-
+  // 2. Global Override Triggers (Menu, Restart, Escalation, Greetings at start, Order Track)
   if (nlu.intent === "HUMAN_ESCALATE" || trimmed === `${ACTION_BUTTON_PREFIX}human`) {
     return {
       handled: true,
@@ -166,6 +187,25 @@ export function processCakestryTurn(
     };
   }
 
+  if (
+    lowered === "menu" ||
+    lowered === "start" ||
+    lowered === "restart" ||
+    lowered === "main menu" ||
+    trimmed === `${ACTION_BUTTON_PREFIX}menu` ||
+    trimmed === `${ACTION_BUTTON_PREFIX}back_categories`
+  ) {
+    state.step = "MAIN_MENU";
+    state.selectedCategory = undefined;
+    state.selectedProduct = undefined;
+    return renderMainMenu(state);
+  }
+
+  if (state.step === "WELCOME") {
+    state.step = "LANGUAGE_SELECTION";
+    return renderWelcomeWithLanguageButtons(state);
+  }
+
   if (nlu.intent === "CHECK_ORDER" || trimmed === `${ACTION_BUTTON_PREFIX}my_order` || trimmed === `${CATEGORY_BUTTON_PREFIX}my_order`) {
     state.step = "MY_ORDER";
     return renderMyOrder(state, waPhone);
@@ -175,7 +215,71 @@ export function processCakestryTurn(
     return renderCatalogueOverview(state);
   }
 
-  // 3. Structured NLU Actions (Multi-Product Extraction, Quantity Update, Item Removal)
+  // 3. Active Step-by-Step Checkout & Custom Cake Inputs (Strict Priority over generic product search)
+  if (state.step === "CHECKOUT_DELIVERY_TYPE" && (trimmed.startsWith(OPTION_PREFIX) || lowered.includes("delivery") || lowered.includes("pickup") || lowered.includes("ڈیلیوری"))) {
+    const isPickup = trimmed === `${OPTION_PREFIX}pickup` || lowered.includes("pickup");
+    state.orderDraft.deliveryType = isPickup ? "PICKUP" : "DELIVERY";
+    state.step = "CHECKOUT_NAME";
+    return renderCheckoutNamePrompt(state);
+  }
+
+  if (state.step === "CHECKOUT_NAME" && trimmed.length >= 2) {
+    state.orderDraft.customerName = trimmed;
+    state.step = "CHECKOUT_PHONE";
+    return renderCheckoutPhonePrompt(state, waPhone);
+  }
+
+  if (state.step === "CHECKOUT_PHONE") {
+    state.orderDraft.phone = trimmed === "use_wa_number" || trimmed === `${OPTION_PREFIX}use_wa_phone` ? waPhone : trimmed;
+    if (state.orderDraft.deliveryType === "DELIVERY") {
+      state.step = "CHECKOUT_ADDRESS";
+      return renderCheckoutAddressPrompt(state);
+    } else {
+      state.step = "CHECKOUT_DATE_TIME";
+      return renderCheckoutDateTimePrompt(state);
+    }
+  }
+
+  if (state.step === "CHECKOUT_ADDRESS" && trimmed.length >= 3) {
+    state.orderDraft.deliveryAddress = trimmed;
+    state.step = "CHECKOUT_DATE_TIME";
+    return renderCheckoutDateTimePrompt(state);
+  }
+
+  if (state.step === "CHECKOUT_DATE_TIME" && trimmed.length >= 2) {
+    state.orderDraft.dateTime = trimmed;
+    state.step = "PAYMENT_VERIFICATION";
+    return renderOrderSummaryAndPayment(state);
+  }
+
+  if (state.step === "CUSTOM_CAKE_WEIGHT") {
+    if (!state.customCakeDraft) state.customCakeDraft = {};
+    state.customCakeDraft.weight = trimmed;
+    state.step = "CUSTOM_CAKE_FLAVOR";
+    return renderCustomCakeFlavor(state);
+  }
+
+  if (state.step === "CUSTOM_CAKE_FLAVOR") {
+    if (!state.customCakeDraft) state.customCakeDraft = {};
+    state.customCakeDraft.flavor = trimmed;
+    state.step = "CUSTOM_CAKE_DESIGN";
+    return renderCustomCakeDesign(state);
+  }
+
+  if (state.step === "CUSTOM_CAKE_DESIGN") {
+    if (!state.customCakeDraft) state.customCakeDraft = {};
+    state.customCakeDraft.design = trimmed;
+    state.step = "CUSTOM_CAKE_DATE_TIME";
+    return renderCustomCakeDateTime(state);
+  }
+
+  if (state.step === "CUSTOM_CAKE_DATE_TIME") {
+    if (!state.customCakeDraft) state.customCakeDraft = {};
+    state.customCakeDraft.dateTime = trimmed;
+    return renderCustomCakeComplete(state);
+  }
+
+  // 4. Structured NLU Actions (Multi-Product Extraction, Quantity Update, Item Removal)
   if (nlu.intent === "QUANTITY_UPDATE" && nlu.quantityUpdate) {
     const { quantity, targetProductId } = nlu.quantityUpdate;
     if (state.orderDraft.items.length > 0) {

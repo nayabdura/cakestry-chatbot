@@ -19,6 +19,7 @@ export interface CustomerDetailsExtracted {
 
 export interface StructuredNluOutput {
   intent:
+    | "LANGUAGE_CHANGE"
     | "ADD_TO_CART"
     | "QUANTITY_UPDATE"
     | "REMOVE_FROM_CART"
@@ -33,6 +34,7 @@ export interface StructuredNluOutput {
     | "HUMAN_ESCALATE"
     | "GREETING"
     | "GENERAL_QUERY";
+  targetLanguage?: Language;
   language: Language;
   products: ExtractedProduct[];
   quantityUpdate?: { quantity: number; targetProductId?: string };
@@ -40,6 +42,68 @@ export interface StructuredNluOutput {
   customerDetails?: CustomerDetailsExtracted;
   ambiguousProducts?: string[];
   rawText: string;
+}
+
+export function detectLanguageChangeIntent(text: string): { isLanguageChange: boolean; targetLanguage?: Language } {
+  const trimmed = text.trim();
+  const lowered = trimmed.toLowerCase();
+
+  if (lowered === "lang:en" || lowered === "english" || lowered === "inglish") {
+    return { isLanguageChange: true, targetLanguage: "en" };
+  }
+  if (lowered === "lang:ur" || lowered === "urdu" || lowered === "urdo") {
+    return { isLanguageChange: true, targetLanguage: "ur" };
+  }
+
+  const enRegex = /\b(english|inglish)\b/i;
+  const enPhrases = [
+    "conversation i'm english",
+    "conversation english",
+    "speak english",
+    "talk english",
+    "talk in english",
+    "talk to me in english",
+    "english please",
+    "english mein",
+    "english me",
+    "in english",
+    "switch to english",
+    "change language to english",
+    "change to english",
+    "english me baat",
+    "english mein baat",
+    "mujhe english",
+  ];
+
+  const urRegex = /\b(urdu|urdo)\b/i;
+  const urPhrases = [
+    "speak urdu",
+    "talk urdu",
+    "talk in urdu",
+    "talk to me in urdu",
+    "urdu please",
+    "urdu mein",
+    "urdu me",
+    "in urdu",
+    "switch to urdu",
+    "change language to urdu",
+    "change to urdu",
+    "urdu me baat",
+    "urdu mein baat",
+    "mujhe urdu",
+  ];
+
+  const hasEn = enRegex.test(lowered) || enPhrases.some((p) => lowered.includes(p));
+  const hasUr = urRegex.test(lowered) || urPhrases.some((p) => lowered.includes(p));
+
+  if (hasEn && !hasUr) {
+    return { isLanguageChange: true, targetLanguage: "en" };
+  }
+  if (hasUr && !hasEn) {
+    return { isLanguageChange: true, targetLanguage: "ur" };
+  }
+
+  return { isLanguageChange: false };
 }
 
 /**
@@ -54,6 +118,18 @@ export async function parseCustomerInputNLU(
   const trimmed = input.trim();
   if (!trimmed) {
     return createEmptyNlu(trimmed);
+  }
+
+  // 0. High Priority Language Change
+  const langChange = detectLanguageChangeIntent(trimmed);
+  if (langChange.isLanguageChange && langChange.targetLanguage) {
+    return {
+      intent: "LANGUAGE_CHANGE",
+      targetLanguage: langChange.targetLanguage,
+      language: langChange.targetLanguage,
+      products: [],
+      rawText: trimmed,
+    };
   }
 
   // 1. Try ChatGPT API if key is set
@@ -118,11 +194,13 @@ Rules:
 1. Extract ALL products mentioned in the text with their quantities.
 2. If quantity is specified (e.g. "2 chocolate fudge cakes"), extract quantity: 2. Default quantity is 1 if unspecified.
 3. NEVER invent products not in the catalogue.
-4. If user corrects quantity (e.g. "nahi 3 kar do", "make that 3"), set intent: "QUANTITY_UPDATE" and quantityUpdate: { quantity: N }.
-5. If user says to remove an item (e.g. "black forest nahi chahiye"), set intent: "REMOVE_FROM_CART" and removedProductId.
-6. Return JSON matching this exact structure:
+4. If user requests language change (e.g. "English please", "Please conversation I'm english", "urdu mein baat karo"), set intent: "LANGUAGE_CHANGE" and targetLanguage: "en" | "ur".
+5. If user corrects quantity (e.g. "nahi 3 kar do", "make that 3"), set intent: "QUANTITY_UPDATE" and quantityUpdate: { quantity: N }.
+6. If user says to remove an item (e.g. "black forest nahi chahiye"), set intent: "REMOVE_FROM_CART" and removedProductId.
+7. Return JSON matching this exact structure:
 {
-  "intent": "ADD_TO_CART" | "QUANTITY_UPDATE" | "REMOVE_FROM_CART" | "INQUIRE_CATALOG" | "CHECK_ORDER" | "CANCEL_ORDER" | "HUMAN_ESCALATE" | "GREETING" | "GENERAL_QUERY",
+  "intent": "LANGUAGE_CHANGE" | "ADD_TO_CART" | "QUANTITY_UPDATE" | "REMOVE_FROM_CART" | "INQUIRE_CATALOG" | "CHECK_ORDER" | "CANCEL_ORDER" | "HUMAN_ESCALATE" | "GREETING" | "GENERAL_QUERY",
+  "targetLanguage": "en" | "ur",
   "language": "en" | "ur",
   "products": [ { "productId": "exact_id", "productName": "name", "quantity": number } ],
   "quantityUpdate": { "quantity": number, "targetProductId": "optional_id" },
@@ -155,6 +233,7 @@ Rules:
   const parsed = JSON.parse(content);
   return {
     intent: parsed.intent || "GENERAL_QUERY",
+    targetLanguage: parsed.targetLanguage,
     language: parsed.language || "en",
     products: Array.isArray(parsed.products) ? parsed.products : [],
     quantityUpdate: parsed.quantityUpdate,
@@ -178,6 +257,18 @@ export function parseDeterministicNLU(
 
   const isUrduScript = /[\u0600-\u06FF]/.test(trimmed);
   const language: Language = isUrduScript ? "ur" : "en";
+
+  // High Priority 1: Check for Language Change
+  const langChange = detectLanguageChangeIntent(trimmed);
+  if (langChange.isLanguageChange && langChange.targetLanguage) {
+    return {
+      intent: "LANGUAGE_CHANGE",
+      targetLanguage: langChange.targetLanguage,
+      language: langChange.targetLanguage,
+      products: [],
+      rawText: trimmed,
+    };
+  }
 
   // Check for Human Handoff / Escalation
   if (lowered.includes("human") || lowered.includes("agent") || lowered.includes("support") || lowered.includes("talk to owner")) {
@@ -265,8 +356,14 @@ export function parseDeterministicNLU(
       }
     }
 
+    // Clean leading/trailing quantity digits/words for product resolution
+    const cleanedLine = lineLowered
+      .replace(/^(?:\s*\d+\s*x?\s*|\s*karna hai\s*\d+\s*)/i, "")
+      .replace(/(?:\s+\d+\s*)$/, "")
+      .trim();
+
     // Try resolving product against authoritative catalogue
-    const matchedProd = resolveProductAlias(lineLowered);
+    const matchedProd = resolveProductAlias(lineLowered) || resolveProductAlias(cleanedLine);
     if (matchedProd) {
       // Check for duplicate in current extraction line
       const existing = extractedProducts.find((p) => p.productId === matchedProd.id);

@@ -104,12 +104,7 @@ async function route(message: InboundMessage): Promise<void> {
     await prisma.whatsappContact.update({ where: { waId }, data: { optedOut: false } });
   }
 
-  // 2. Human escalation request
-  if (shouldEscalate(message.text)) {
-    return escalate(context, "MARKETING", message.text);
-  }
-
-  // 3. Media & Payment Verification Screenshot check
+  // 2. Media & Payment Verification Screenshot check
   const storedCapture = conversation.capture ? (conversation.capture as unknown as CakestryStateData) : null;
   const isPaymentStep = storedCapture?.step === "PAYMENT_VERIFICATION";
 
@@ -130,12 +125,22 @@ async function route(message: InboundMessage): Promise<void> {
     return;
   }
 
-  // 4. Structured AI NLU Extraction
+  // 3. Structured AI NLU Extraction
   const currentCartProducts = storedCapture?.orderDraft?.items?.map((i) => i.productId) || [];
   const nluResult = await parseCustomerInputNLU(answer, storedCapture?.step, currentCartProducts);
 
-  // 5. Deterministic Cakestry State Machine Turn
+  // 4. Deterministic Cakestry State Machine Turn
   const outcome = processCakestryTurn(storedCapture, answer, language, phone, nluResult);
+
+  // 5. Structured State Transition Logging
+  console.log(`[STATE_TRANSITION] ${JSON.stringify({
+    phone,
+    messageId: message.id,
+    previousState: storedCapture?.step || "INITIAL",
+    intent: nluResult.intent,
+    newState: outcome.state.step,
+    language: outcome.state.language,
+  })}`);
 
   if (outcome.handled) {
     await prisma.conversation.update({
