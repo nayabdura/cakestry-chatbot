@@ -207,11 +207,117 @@ export function findProductsByCategory(categoryId: string): CakestryProduct[] {
   return PRODUCTS.filter((p) => p.categoryId === categoryId);
 }
 
+export function findCategoryById(id: string): CakestryCategory | undefined {
+  return CATEGORIES.find((c) => c.id === id);
+}
+
 /**
- * Robust Product Alias Resolver & Fuzzy Matcher
- * Maps natural customer phrases, Roman Urdu, singular/plural, and abbreviations
- * strictly to valid server-side catalogue products.
- * NEVER returns random products or defaults when unmapped.
+ * Register a new product dynamically into the catalogue data.
+ * Demonstrates runtime addition of products without modifying code.
+ */
+export function registerProduct(product: CakestryProduct): void {
+  const existingIdx = PRODUCTS.findIndex((p) => p.id === product.id);
+  if (existingIdx >= 0) {
+    PRODUCTS[existingIdx] = product;
+  } else {
+    PRODUCTS.push(product);
+  }
+}
+
+/**
+ * Register a new category dynamically into the catalogue data.
+ */
+export function registerCategory(category: CakestryCategory): void {
+  const existingIdx = CATEGORIES.findIndex((c) => c.id === category.id);
+  if (existingIdx >= 0) {
+    CATEGORIES[existingIdx] = category;
+  } else {
+    CATEGORIES.push(category);
+  }
+}
+
+/**
+ * Dynamic Singular/Plural Stemmer for English & Roman Urdu nouns
+ * Converts "cupcakes" -> "cupcake", "brownies" -> "brownie", "pastries" -> "pastry", etc.
+ */
+function normalizeWordStem(word: string): string {
+  const w = word.toLowerCase().trim();
+  if (w.endsWith("ies") && w.length > 4) return w.slice(0, -3) + "y";
+  if (w.endsWith("es") && (w.endsWith("ches") || w.endsWith("shes") || w.endsWith("sses") || w.endsWith("xes"))) return w.slice(0, -2);
+  if (w.endsWith("s") && !w.endsWith("ss") && w.length > 3) return w.slice(0, -1);
+  return w;
+}
+
+/**
+ * Normalizes user text for catalogue comparison
+ */
+function cleanTextTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, " ")
+    .replace(/[^\w\s\u0600-\u06FF]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Generic, Data-Driven Category Matcher
+ * Strictly resolves categories from the current `CATEGORIES` dataset.
+ * Zero category-specific hardcoded keywords.
+ */
+export function matchCategory(input: string): CakestryCategory | undefined {
+  if (!input) return undefined;
+
+  const clean = input
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+    .replace(/[^\w\s\u0600-\u06FF]/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (!clean) return undefined;
+
+  // 1. Direct match on ID, English Name, or Urdu Name
+  for (const cat of CATEGORIES) {
+    if (
+      clean === cat.id.toLowerCase() ||
+      clean === cat.nameEn.toLowerCase() ||
+      clean === cat.nameUr.toLowerCase()
+    ) {
+      return cat;
+    }
+  }
+
+  // 2. Dynamic token & stem comparison across all active categories in data
+  const inputTokens = cleanTextTokens(clean).map(normalizeWordStem);
+
+  for (const cat of CATEGORIES) {
+    // Generate valid search keywords dynamically from category name and ID
+    const catWords = [
+      ...cleanTextTokens(cat.nameEn),
+      ...cleanTextTokens(cat.id.replace(/_/g, " ")),
+    ].map(normalizeWordStem);
+
+    // If input matches any significant stemmed word from this category
+    const hasMatch = inputTokens.some((token) =>
+      token.length >= 3 && catWords.includes(token)
+    );
+
+    // Also check Urdu substring match dynamically
+    const urduMatch = cat.nameUr && clean.includes(cat.nameUr);
+
+    if (hasMatch || urduMatch) {
+      return cat;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Generic, Data-Driven Product Matcher
+ * Resolves natural customer phrases dynamically against `PRODUCTS` data.
+ * Zero product-specific hardcoded alias dictionaries.
  */
 export function resolveProductAlias(rawInput: string): CakestryProduct | undefined {
   if (!rawInput) return undefined;
@@ -226,116 +332,49 @@ export function resolveProductAlias(rawInput: string): CakestryProduct | undefin
   );
   if (exact) return exact;
 
-  // 2. Exact Manual Alias Mappings
-  const ALIAS_MAP: Record<string, string> = {
-    // Signature Cakes
-    "black forest": "blackforest_cake",
-    "black forest cake": "blackforest_cake",
-    "black forest cakes": "blackforest_cake",
-    "blackforest": "blackforest_cake",
-    "blackforest cake": "blackforest_cake",
+  // 2. Dynamic Token-Based Scoring against all catalogue products
+  const queryTokens = cleanTextTokens(lowered).map(normalizeWordStem);
+  if (queryTokens.length === 0) return undefined;
 
-    "chocolate fudge": "choc_fudge",
-    "chocolate fudge cake": "choc_fudge",
-    "chocolate fudge cakes": "choc_fudge",
-    "choc fudge": "choc_fudge",
-    "fudge cake": "choc_fudge",
-    "diet chocolate fudge cake": "choc_fudge", // Rule: "Diet Chocolate Fudge Cake" maps to Chocolate Fudge Cake
-    "diet chocolate cake": "diet_choc_cake",
+  let bestMatch: CakestryProduct | undefined = undefined;
+  let bestScore = 0;
+  let matchesWithSameScore = 0;
 
-    "cream puff": "cream_puffs",
-    "cream puffs": "cream_puffs",
-    "puffs": "cream_puffs",
-    "cream roll": "cream_rolls",
-    "cream rolls": "cream_rolls",
+  for (const prod of PRODUCTS) {
+    if (prod.id.toLowerCase() === lowered) return prod;
 
-    "pineapple cake": "pineapple_cake",
-    "pineapple cakes": "pineapple_cake",
+    const nameTokens = cleanTextTokens(prod.nameEn).map(normalizeWordStem);
+    let matchedCount = 0;
+    for (const pt of nameTokens) {
+      if (queryTokens.includes(pt)) {
+        matchedCount++;
+      }
+    }
 
-    "lotus cake": "lotus_cake",
-    "lotus cakes": "lotus_cake",
+    const nameEnLower = prod.nameEn.toLowerCase();
+    const isSubstring = lowered.includes(nameEnLower);
 
-    "three milk cake": "threemilk_cake",
-    "threemilk cake": "threemilk_cake",
-    "3 milk cake": "threemilk_cake",
+    // Score calculation
+    let score = matchedCount / Math.max(nameTokens.length, 1);
+    if (isSubstring) score += 1.0;
 
-    "honey cake": "honey_2p",
-    "honey cake 2p": "honey_2p",
+    // Urdu script direct match
+    if (prod.nameUr && lowered.includes(prod.nameUr.toLowerCase())) {
+      score += 2.0;
+    }
 
-    "chocolate dream cake": "choc_dream",
-    "dream cake": "choc_dream",
-
-    // Cupcakes
-    "lotus cup cake": "cup_lotus",
-    "lotus cupcake": "cup_lotus",
-    "lotus cupcakes": "cup_lotus",
-
-    "nutella cup cake": "cup_nutella",
-    "nutella cupcake": "cup_nutella",
-    "nutella cupcakes": "cup_nutella",
-
-    "red velvet cup cake": "cup_redvelvet",
-    "red velvet cupcake": "cup_redvelvet",
-    "red velvet cupcakes": "cup_redvelvet",
-
-    "ferrero cup cake": "cup_ferrero",
-    "ferrero cupcake": "cup_ferrero",
-
-    // Brownies
-    "nutella brownie": "brownie_nutella",
-    "nutella brownies": "brownie_nutella",
-    "walnut brownie": "brownie_walnut",
-    "walnut brownies": "brownie_walnut",
-
-    // Donuts & Slices
-    "nutella donut": "donut_nutella",
-    "chocolate donut": "donut_choc",
-    "lotus donut": "donut_lotus",
-    "bake cheese slice": "slice_bake_cheese",
-    "cheese slice": "slice_cheese",
-    "cheesecake slice": "slice_cheese",
-
-    // Wraps & Sandwiches
-    "grilled sandwich": "sandwich_grilled",
-    "sandwich grilled": "sandwich_grilled",
-    "chicken sandwich": "sandwich_chicken",
-    "bbq sandwich": "sandwich_bbq",
-    "chicken malai boti wrap": "wrap_chicken_malai",
-    "malai boti wrap": "wrap_chicken_malai",
-    "chicken malai boti": "wrap_chicken_malai",
-    "bihari boti wrap": "wrap_bihari_boti",
-    "bihari boti": "wrap_bihari_boti",
-
-    // Desserts & Savories
-    "dry almond cake": "dry_almond_cake",
-    "chicken patty": "chicken_patty",
-    "patty": "chicken_patty",
-
-    // Pastries
-    "molten lava": "pastry_molten_lava",
-    "molten lava cupcake": "pastry_molten_lava",
-    "black forest pastry": "pastry_blackforest",
-    "pineapple pastry": "pastry_pineapple",
-    "lotus pastry": "pastry_lotus",
-    "three milk pastry": "pastry_threemilk",
-    "pistachio pastry": "pastry_pistachio",
-  };
-
-  const aliasId = ALIAS_MAP[lowered];
-  if (aliasId) {
-    return findProductById(aliasId);
+    if (score > bestScore && score >= 0.5) {
+      bestScore = score;
+      bestMatch = prod;
+      matchesWithSameScore = 1;
+    } else if (Math.abs(score - bestScore) < 0.001 && score >= 0.5) {
+      matchesWithSameScore++;
+    }
   }
 
-  // 3. Substring matching with safety rules (only if specific product name fully matches a token)
-  const matches = PRODUCTS.filter(
-    (p) =>
-      lowered.includes(p.nameEn.toLowerCase()) ||
-      p.nameEn.toLowerCase().includes(lowered)
-  );
-
-  // If exactly 1 match found, return it safely. If multiple or none, return undefined (never guess randomly!)
-  if (matches.length === 1) {
-    return matches[0];
+  // If there's an unambiguous single winner with sufficient confidence, return it
+  if (bestMatch && matchesWithSameScore === 1 && bestScore >= 0.5) {
+    return bestMatch;
   }
 
   return undefined;
@@ -345,57 +384,7 @@ export function findProductByName(name: string): CakestryProduct | undefined {
   return resolveProductAlias(name);
 }
 
-export function matchCategory(input: string): CakestryCategory | undefined {
-  if (!input) return undefined;
-
-  // Strip emojis, brackets, and extra punctuation
-  const clean = input
-    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
-    .replace(/[^\w\s\u0600-\u06FF]/g, " ")
-    .trim()
-    .toLowerCase();
-
-  if (!clean) return undefined;
-
-  // 1. Direct equality on ID, English Name, or Urdu Name
-  for (const cat of CATEGORIES) {
-    if (
-      clean === cat.id.toLowerCase() ||
-      clean === cat.nameEn.toLowerCase() ||
-      clean === cat.nameUr.toLowerCase()
-    ) {
-      return cat;
-    }
-  }
-
-  // 2. Exact word boundaries or robust keywords
-  if (/\b(pastry|pastries)\b/i.test(clean) || clean.includes("پیسٹری")) {
-    return CATEGORIES.find((c) => c.id === "pastries");
-  }
-  if (/\b(cupcake|cupcakes|cup cake|cup cakes)\b/i.test(clean) || clean.includes("کپ کیک")) {
-    return CATEGORIES.find((c) => c.id === "cupcakes");
-  }
-  if (/\b(brownie|brownies)\b/i.test(clean) || clean.includes("براؤنی")) {
-    return CATEGORIES.find((c) => c.id === "brownies");
-  }
-  if (/\b(donut|donuts|doughnut|doughnuts|slice|slices)\b/i.test(clean) || clean.includes("ڈونٹ") || clean.includes("سلائس")) {
-    return CATEGORIES.find((c) => c.id === "donuts_slices");
-  }
-  if (/\b(wrap|wraps|sandwich|sandwiches)\b/i.test(clean) || clean.includes("ریپ") || clean.includes("سینڈوچ")) {
-    return CATEGORIES.find((c) => c.id === "wraps_sandwiches");
-  }
-  if (/\b(dessert|desserts|savory|savories|cream puff|puff|puffs)\b/i.test(clean) || clean.includes("ڈیزرٹ") || clean.includes("سنیک")) {
-    return CATEGORIES.find((c) => c.id === "desserts_savories");
-  }
-  if (/\b(custom|customized|custom cake|custom cakes|customized cake|customized cakes)\b/i.test(clean) || clean.includes("کسٹم")) {
-    return CATEGORIES.find((c) => c.id === "custom_cakes");
-  }
-  if (/\b(signature cake|signature cakes|cake|cakes|birthday cake)\b/i.test(clean) || clean.includes("کیک")) {
-    return CATEGORIES.find((c) => c.id === "signature_cakes");
-  }
-
-  return undefined;
-}
+// ------------------------------------------------------------- Generic Cart Operations --
 
 export interface OrderItemState {
   productId: string;
@@ -403,6 +392,72 @@ export interface OrderItemState {
   cheeseAddon?: boolean;
 }
 
+/**
+ * Pure Generic Cart: Add an item or update its quantity
+ */
+export function addItemToCart(
+  items: OrderItemState[],
+  productId: string,
+  quantity: number,
+  cheeseAddon?: boolean
+): OrderItemState[] {
+  const safeQty = Math.max(1, quantity);
+  const existingIdx = items.findIndex((i) => i.productId === productId);
+
+  if (existingIdx >= 0) {
+    return items.map((item, idx) =>
+      idx === existingIdx
+        ? {
+            ...item,
+            quantity: safeQty,
+            cheeseAddon: cheeseAddon !== undefined ? cheeseAddon : item.cheeseAddon,
+          }
+        : item
+    );
+  }
+
+  return [...items, { productId, quantity: safeQty, cheeseAddon: !!cheeseAddon }];
+}
+
+/**
+ * Pure Generic Cart: Update item quantity
+ */
+export function updateCartItemQuantity(
+  items: OrderItemState[],
+  productId: string,
+  quantity: number
+): OrderItemState[] {
+  const safeQty = Math.max(0, quantity);
+  if (safeQty === 0) {
+    return items.filter((i) => i.productId !== productId);
+  }
+  return items.map((item) =>
+    item.productId === productId ? { ...item, quantity: safeQty } : item
+  );
+}
+
+/**
+ * Pure Generic Cart: Remove an item
+ */
+export function removeCartItem(
+  items: OrderItemState[],
+  productId: string
+): OrderItemState[] {
+  return items.filter((i) => i.productId !== productId);
+}
+
+/**
+ * Pure Generic Cart: Clear all items
+ */
+export function clearCartItems(): OrderItemState[] {
+  return [];
+}
+
+/**
+ * Authoritative Backend Price & Totals Calculator
+ * Guarantees that prices and totals are strictly determined by the official catalogue data.
+ * AI never hallucinates or computes money values freely.
+ */
 export function calculateOrderTotals(
   items: OrderItemState[],
   deliveryType: "DELIVERY" | "PICKUP" = "DELIVERY"
@@ -434,3 +489,4 @@ export function calculateOrderTotals(
 
   return { subtotal, deliveryFee, total, itemized };
 }
+

@@ -7,8 +7,13 @@ import {
   calculateOrderTotals,
   findProductById,
   findProductsByCategory,
+  findCategoryById,
   resolveProductAlias,
   matchCategory,
+  addItemToCart,
+  updateCartItemQuantity,
+  removeCartItem,
+  clearCartItems,
   type CakestryProduct,
   type OrderItemState,
 } from "@/lib/cakestry";
@@ -69,6 +74,7 @@ export interface CakestryStateData {
   version: 2;
   step: CakestryStepState;
   language: Language;
+  pendingIntent?: StructuredNluOutput;
   selectedCategory?: string;
   selectedProduct?: string;
   orderDraft: CakestryOrderDraft;
@@ -128,6 +134,17 @@ export function processCakestryTurn(
   state.language = state.language || language;
 
   // =========================================================================
+  // 0. CLARIFICATION REQUIREMENT (When AI is genuinely ambiguous)
+  // =========================================================================
+  if (nlu.requiresClarification && nlu.clarificationQuestion) {
+    return {
+      handled: true,
+      state,
+      reply: { text: nlu.clarificationQuestion },
+    };
+  }
+
+  // =========================================================================
   // 1. DETERMINISTIC BUTTON PREFIX HANDLERS (Top Priority)
   // When WhatsApp delivers an interactive list/button selection, handle directly
   // =========================================================================
@@ -139,6 +156,44 @@ export function processCakestryTurn(
       : nlu.targetLanguage || language;
 
     state.language = newLang;
+
+    // Check if customer had a pending request/intent from initial contact!
+    if (state.pendingIntent) {
+      const pending = state.pendingIntent;
+      state.pendingIntent = undefined;
+
+      if (pending.intent === "SELECT_CATEGORY" && pending.selectedCategoryId) {
+        state.selectedCategory = pending.selectedCategoryId;
+        state.step = "CATEGORY_VIEW";
+        return renderCategoryView(state, state.selectedCategory);
+      }
+      if (pending.intent === "SELECT_PRODUCT" && pending.selectedProductId) {
+        const prod = findProductById(pending.selectedProductId);
+        if (prod) {
+          state.selectedProduct = prod.id;
+          state.step = "PRODUCT_QUANTITY";
+          return renderProductQuantityPrompt(state, prod);
+        }
+      }
+      if (pending.intent === "ADD_TO_CART" && pending.products && pending.products.length > 0) {
+        for (const item of pending.products) {
+          const prod = findProductById(item.productId);
+          if (prod) {
+            state.orderDraft.items = addItemToCart(state.orderDraft.items, prod.id, item.quantity, item.cheeseAddon);
+          }
+        }
+        state.step = "ORDER_CONFIRM_ITEMS";
+        return renderOrderConfirmItems(state);
+      }
+      if (pending.intent === "CHECK_ORDER") {
+        state.step = "MY_ORDER";
+        return renderMyOrder(state, waPhone);
+      }
+      if (pending.intent === "INQUIRE_CATALOG") {
+        state.step = "MAIN_MENU";
+        return renderMainMenu(state);
+      }
+    }
 
     switch (state.step) {
       case "WELCOME":
@@ -177,9 +232,32 @@ export function processCakestryTurn(
     }
   }
 
-  // 1b. Category button (e.g. "cat:pastries", "cat:custom_cakes", "cat:my_order")
-  if (trimmed.startsWith(CATEGORY_BUTTON_PREFIX)) {
-    const catId = trimmed.slice(CATEGORY_BUTTON_PREFIX.length);
+  // =========================================================================
+  // 1b. INITIAL CONTACT / WELCOME / LANGUAGE ONBOARDING
+  // New conversations start with welcome + real language buttons.
+  // If the customer already asked for something, remember it as pendingIntent!
+  // =========================================================================
+  if (state.step === "WELCOME") {
+    state.step = "LANGUAGE_SELECTION";
+    if (nlu.intent !== "GREETING" && nlu.intent !== "GENERAL_QUERY") {
+      state.pendingIntent = nlu;
+    }
+    return renderWelcomeWithLanguageButtons(state);
+  }
+
+  if (state.step === "LANGUAGE_SELECTION") {
+    if (nlu.intent !== "GREETING" && nlu.intent !== "GENERAL_QUERY") {
+      state.pendingIntent = nlu;
+    }
+    return renderWelcomeWithLanguageButtons(state);
+  }
+
+  // 1c. Category button or NLU Browse Category Intent (READ-ONLY: Cart is NEVER mutated)
+  if (trimmed.startsWith(CATEGORY_BUTTON_PREFIX) || nlu.intent === "SELECT_CATEGORY") {
+    const catId = trimmed.startsWith(CATEGORY_BUTTON_PREFIX)
+      ? trimmed.slice(CATEGORY_BUTTON_PREFIX.length)
+      : nlu.selectedCategoryId || matchCategory(trimmed)?.id;
+
     if (catId === "custom_cakes") {
       state.step = "CUSTOM_CAKE_WEIGHT";
       state.customCakeDraft = {};
@@ -193,17 +271,23 @@ export function processCakestryTurn(
       return renderLocationInfo(state);
     }
 
-    state.selectedCategory = catId;
-    state.step = "CATEGORY_VIEW";
-    return renderCategoryView(state, catId);
+    if (catId) {
+      state.selectedCategory = catId;
+      state.step = "CATEGORY_VIEW";
+      // Cart items remain strictly untouched
+      return renderCategoryView(state, catId);
+    }
   }
 
-  // 1c. Product button (e.g. "prod:pastry_molten_lava")
-  if (trimmed.startsWith(PRODUCT_BUTTON_PREFIX)) {
-    const prodId = trimmed.slice(PRODUCT_BUTTON_PREFIX.length);
-    const prod = findProductById(prodId);
+  // 1c. Product button or NLU Select Product Intent (READ-ONLY: Cart is NEVER mutated here)
+  if (trimmed.startsWith(PRODUCT_BUTTON_PREFIX) || nlu.intent === "SELECT_PRODUCT") {
+    const prodId = trimmed.startsWith(PRODUCT_BUTTON_PREFIX)
+      ? trimmed.slice(PRODUCT_BUTTON_PREFIX.length)
+      : nlu.selectedProductId || resolveProductAlias(trimmed)?.id;
+
+    const prod = prodId ? findProductById(prodId) : undefined;
     if (prod) {
-      state.selectedProduct = prodId;
+      state.selectedProduct = prod.id;
       state.step = "PRODUCT_QUANTITY";
       return renderProductQuantityPrompt(state, prod);
     }
@@ -228,12 +312,7 @@ export function processCakestryTurn(
     const prodId = state.selectedProduct;
     const prod = prodId ? findProductById(prodId) : undefined;
     if (prod) {
-      const existingIdx = state.orderDraft.items.findIndex((i) => i.productId === prod.id);
-      if (existingIdx >= 0) {
-        state.orderDraft.items[existingIdx].quantity = qtyNum;
-      } else {
-        state.orderDraft.items.push({ productId: prod.id, quantity: qtyNum, cheeseAddon: false });
-      }
+      state.orderDraft.items = addItemToCart(state.orderDraft.items, prod.id, qtyNum, false);
 
       if (prod.allowCheeseAddon) {
         state.step = "CHEESE_ADDON";
@@ -260,7 +339,8 @@ export function processCakestryTurn(
   if (
     trimmed === `${ACTION_BUTTON_PREFIX}menu` ||
     trimmed === `${ACTION_BUTTON_PREFIX}back_categories` ||
-    trimmed === `${ACTION_BUTTON_PREFIX}add_more`
+    trimmed === `${ACTION_BUTTON_PREFIX}add_more` ||
+    lowered.includes("add more")
   ) {
     state.step = "MAIN_MENU";
     state.selectedCategory = undefined;
@@ -268,7 +348,7 @@ export function processCakestryTurn(
     return renderMainMenu(state);
   }
 
-  if (trimmed === `${ACTION_BUTTON_PREFIX}checkout`) {
+  if (trimmed === `${ACTION_BUTTON_PREFIX}checkout` || nlu.intent === "CHECKOUT") {
     if (!state.orderDraft.items.length) {
       state.step = "MAIN_MENU";
       return renderMainMenu(state);
@@ -298,6 +378,7 @@ export function processCakestryTurn(
 
   // =========================================================================
   // 2. ACTIVE STEP-BY-STEP CHECKOUT & CUSTOM CAKE CONVERSATIONS
+  // STRICT PARTIAL UPDATE: Only the specific field is updated. Cart items are untouched!
   // =========================================================================
   if (state.step === "CHECKOUT_DELIVERY_TYPE" && (trimmed.startsWith(OPTION_PREFIX) || lowered.includes("delivery") || lowered.includes("pickup") || lowered.includes("ڈیلیوری"))) {
     const isPickup = trimmed === `${OPTION_PREFIX}pickup` || lowered.includes("pickup");
@@ -363,66 +444,50 @@ export function processCakestryTurn(
   }
 
   // =========================================================================
-  // 3. CART OPERATIONS (Quantity update, Item removal, Add to cart)
+  // 3. CART OPERATIONS (Generic, isolated, and persistent)
   // =========================================================================
+
+  // 3a. Relative/Explicit Quantity Update ("make it 3", "actually 4", "change to 2")
   if (nlu.intent === "QUANTITY_UPDATE" && nlu.quantityUpdate) {
     const { quantity, targetProductId } = nlu.quantityUpdate;
-    if (state.orderDraft.items.length > 0) {
-      const targetIdx = targetProductId
-        ? state.orderDraft.items.findIndex((i) => i.productId === targetProductId)
-        : state.orderDraft.items.length - 1;
+    const targetId =
+      targetProductId ||
+      state.selectedProduct ||
+      (state.orderDraft.items.length > 0 ? state.orderDraft.items[state.orderDraft.items.length - 1].productId : undefined);
 
-      const idxToUpdate = targetIdx >= 0 ? targetIdx : state.orderDraft.items.length - 1;
-      state.orderDraft.items[idxToUpdate].quantity = quantity;
+    if (targetId && state.orderDraft.items.length > 0) {
+      state.orderDraft.items = updateCartItemQuantity(state.orderDraft.items, targetId, quantity);
       state.step = "ORDER_CONFIRM_ITEMS";
       return renderOrderConfirmItems(state);
     }
   }
 
+  // 3b. Item Removal ("remove the cake", "ye wala hata do")
   if (nlu.intent === "REMOVE_FROM_CART" && nlu.removedProductId) {
-    state.orderDraft.items = state.orderDraft.items.filter((i) => i.productId !== nlu.removedProductId);
+    state.orderDraft.items = removeCartItem(state.orderDraft.items, nlu.removedProductId);
     state.step = "ORDER_CONFIRM_ITEMS";
     return renderOrderConfirmItems(state);
   }
 
+  // 3c. Add to Cart (Single or Multi-Product Extraction from natural language)
   if (nlu.intent === "ADD_TO_CART" && nlu.products.length > 0) {
     for (const item of nlu.products) {
       const prod = findProductById(item.productId);
       if (!prod) continue;
-
-      const existingIndex = state.orderDraft.items.findIndex((i) => i.productId === item.productId);
-      if (existingIndex >= 0) {
-        state.orderDraft.items[existingIndex].quantity = item.quantity;
-      } else {
-        state.orderDraft.items.push({
-          productId: prod.id,
-          quantity: item.quantity,
-          cheeseAddon: item.cheeseAddon || false,
-        });
-      }
+      state.orderDraft.items = addItemToCart(
+        state.orderDraft.items,
+        prod.id,
+        item.quantity,
+        item.cheeseAddon || false
+      );
     }
 
     state.step = "ORDER_CONFIRM_ITEMS";
     return renderOrderConfirmItems(state);
   }
 
-  if (lowered.includes("add more") || lowered === "add more items") {
-    state.step = "MAIN_MENU";
-    return renderMainMenu(state);
-  }
-
-  if (lowered.includes("checkout")) {
-    if (!state.orderDraft.items.length) {
-      state.step = "MAIN_MENU";
-      return renderMainMenu(state);
-    }
-    state.step = "CHECKOUT_DELIVERY_TYPE";
-    return renderCheckoutDeliveryType(state);
-  }
-
   // =========================================================================
-  // 4. NATURAL CATEGORY MATCHING (High Priority over generic menu/catalogue)
-  // e.g. "Pastries", "🥐 Pastries", "Brownies", "Donuts", "Cakes", "Sandwiches"
+  // 4. NATURAL CATEGORY MATCHING (Fallback if not classified by NLU)
   // =========================================================================
   const matchedCat = matchCategory(trimmed);
   if (matchedCat) {
@@ -437,8 +502,7 @@ export function processCakestryTurn(
   }
 
   // =========================================================================
-  // 5. NATURAL SINGLE PRODUCT DIRECT MATCH
-  // e.g. "Molten Lava Cupcake", "Milk Chocolate Pastry", "Nutella Brownie"
+  // 5. NATURAL SINGLE PRODUCT DIRECT MATCH (Fallback if not classified by NLU)
   // =========================================================================
   const matchedProd = resolveProductAlias(trimmed);
   if (matchedProd) {
@@ -472,9 +536,9 @@ export function processCakestryTurn(
   }
 
   // =========================================================================
-  // 7. INITIAL WELCOME / GREETING
+  // 7. GREETING FALLBACK
   // =========================================================================
-  if (state.step === "WELCOME" || nlu.intent === "GREETING" || lowered === "hello" || lowered === "hi" || lowered === "salam" || lowered === "assalam o alaikum") {
+  if (nlu.intent === "GREETING" || lowered === "hello" || lowered === "hi" || lowered === "salam" || lowered === "assalam o alaikum") {
     state.step = "LANGUAGE_SELECTION";
     return renderWelcomeWithLanguageButtons(state);
   }

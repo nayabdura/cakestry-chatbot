@@ -1,4 +1,11 @@
-import { PRODUCTS, findProductById, resolveProductAlias, matchCategory, type CakestryProduct } from "@/lib/cakestry";
+import {
+  PRODUCTS,
+  CATEGORIES,
+  findProductById,
+  resolveProductAlias,
+  matchCategory,
+  type CakestryProduct,
+} from "@/lib/cakestry";
 import type { Language } from "@/lib/i18n";
 import { config } from "@/lib/config";
 
@@ -36,11 +43,15 @@ export interface StructuredNluOutput {
     | "GENERAL_QUERY";
   targetLanguage?: Language;
   language: Language;
+  selectedCategoryId?: string;
+  selectedProductId?: string;
   products: ExtractedProduct[];
   quantityUpdate?: { quantity: number; targetProductId?: string };
   removedProductId?: string;
   customerDetails?: CustomerDetailsExtracted;
   ambiguousProducts?: string[];
+  requiresClarification?: boolean;
+  clarificationQuestion?: string;
   rawText: string;
 }
 
@@ -112,8 +123,56 @@ export function detectLanguageChangeIntent(text: string): { isLanguageChange: bo
 }
 
 /**
+ * Word to number helper for English and Roman Urdu numerals
+ */
+const WORD_NUMBER_MAP: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  ek: 1,
+  aik: 1,
+  do: 2,
+  teen: 3,
+  char: 4,
+  chaar: 4,
+  paanch: 5,
+  panch: 5,
+  che: 6,
+  chhe: 6,
+  saat: 7,
+  aath: 8,
+  nau: 9,
+  das: 10,
+};
+
+function parseWordOrDigitQuantity(text: string): number | undefined {
+  const trimmed = text.trim().toLowerCase();
+  const digitMatch = trimmed.match(/(?:^|\b|\s)(\d+)(?:x|\b|\s|$)/i);
+  if (digitMatch) {
+    const num = parseInt(digitMatch[1], 10);
+    if (!isNaN(num) && num > 0 && num <= 100) return num;
+  }
+  for (const [word, val] of Object.entries(WORD_NUMBER_MAP)) {
+    const wordRegex = new RegExp(`\\b${word}\\b`, "i");
+    if (wordRegex.test(trimmed)) {
+      return val;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Main NLU Entry Point
- * Fast deterministic recognition runs first, then OpenAI ChatGPT JSON extraction, then fallback parser.
+ * 1. Fast deterministic button/payload routing
+ * 2. Primary LLM Semantic Understanding Layer (ChatGPT)
+ * 3. Robust Data-Driven Server-Side Fallback
  */
 export async function parseCustomerInputNLU(
   input: string,
@@ -130,13 +189,22 @@ export async function parseCustomerInputNLU(
 
   // 0a. Deterministic WhatsApp Interactive Button / List Row Payloads
   if (trimmed.startsWith("cat:")) {
-    return { intent: "SELECT_CATEGORY", language: lang, products: [], rawText: trimmed };
+    const catId = trimmed.slice(4);
+    return { intent: "SELECT_CATEGORY", language: lang, selectedCategoryId: catId, products: [], rawText: trimmed };
   }
   if (trimmed.startsWith("prod:")) {
-    return { intent: "SELECT_PRODUCT", language: lang, products: [], rawText: trimmed };
+    const prodId = trimmed.slice(5);
+    return { intent: "SELECT_PRODUCT", language: lang, selectedProductId: prodId, products: [], rawText: trimmed };
   }
   if (trimmed.startsWith("qty:")) {
-    return { intent: "QUANTITY_UPDATE", language: lang, products: [], rawText: trimmed };
+    const qty = parseInt(trimmed.slice(4), 10) || 1;
+    return {
+      intent: "QUANTITY_UPDATE",
+      language: lang,
+      products: [],
+      quantityUpdate: { quantity: qty, targetProductId: currentCartProductIds[currentCartProductIds.length - 1] },
+      rawText: trimmed,
+    };
   }
   if (trimmed.startsWith("addon:")) {
     return { intent: "PROVIDE_DETAILS", language: lang, products: [], rawText: trimmed };
@@ -151,7 +219,7 @@ export async function parseCustomerInputNLU(
     return { intent: "HUMAN_ESCALATE", language: lang, products: [], rawText: trimmed };
   }
 
-  // 0b. High Priority Language Change
+  // 0b. High Priority Explicit Language Switch
   const langChange = detectLanguageChangeIntent(trimmed);
   if (langChange.isLanguageChange && langChange.targetLanguage) {
     return {
@@ -163,44 +231,45 @@ export async function parseCustomerInputNLU(
     };
   }
 
-  // 0c. Category Direct Match (e.g. "Pastries", "🥐 Pastries", "Brownies", "Donuts")
-  const catMatch = matchCategory(trimmed);
-  if (catMatch) {
-    return {
-      intent: "SELECT_CATEGORY",
-      language: lang,
-      products: [],
-      rawText: trimmed,
-    };
-  }
-
-  // 1. Try ChatGPT API if key is set
+  // 1. PRIMARY: Semantic Understanding Layer via LLM (OpenAI / ChatGPT)
   if (config.ai.openaiApiKey) {
     try {
       const llmResult = await extractWithChatGPT(trimmed, currentStep, currentCartProductIds);
-      if (llmResult && llmResult.products) {
-        // Validate all extracted products against server-side catalogue
-        const validatedProducts: ExtractedProduct[] = [];
-        for (const p of llmResult.products) {
-          const resolved = resolveProductAlias(p.productId || p.productName);
-          if (resolved) {
-            validatedProducts.push({
-              productId: resolved.id,
-              productName: resolved.nameEn,
-              quantity: Math.max(1, p.quantity || 1),
-              cheeseAddon: p.cheeseAddon || false,
-            });
+      if (llmResult) {
+        // Backend Validation: validate and normalize all extracted products strictly against live catalogue
+        if (llmResult.products && llmResult.products.length > 0) {
+          const validatedProducts: ExtractedProduct[] = [];
+          for (const p of llmResult.products) {
+            const resolved = findProductById(p.productId) || resolveProductAlias(p.productId || p.productName);
+            if (resolved) {
+              validatedProducts.push({
+                productId: resolved.id,
+                productName: resolved.nameEn,
+                quantity: Math.max(1, p.quantity || 1),
+                cheeseAddon: p.cheeseAddon || false,
+              });
+            }
+          }
+          llmResult.products = validatedProducts;
+        }
+
+        // Validate category ID if present
+        if (llmResult.selectedCategoryId) {
+          const cat = CATEGORIES.find((c) => c.id === llmResult.selectedCategoryId);
+          if (!cat) {
+            const matched = matchCategory(llmResult.selectedCategoryId);
+            llmResult.selectedCategoryId = matched?.id;
           }
         }
-        llmResult.products = validatedProducts;
+
         return llmResult;
       }
     } catch (err) {
-      console.warn("[NLU] ChatGPT extraction failed, using deterministic parser:", err);
+      console.warn("[NLU] ChatGPT extraction failed, falling back to data-driven parser:", err);
     }
   }
 
-  // 2. Deterministic Server-Side Parser (Zero-latency fallback)
+  // 2. BACKEND FALLBACK: Pure data-driven deterministic parser (offline / safe fallback)
   return parseDeterministicNLU(trimmed, currentStep, currentCartProductIds);
 }
 
@@ -215,6 +284,7 @@ function createEmptyNlu(rawText: string): StructuredNluOutput {
 
 /**
  * ChatGPT Structured JSON Extractor
+ * Injects authoritative live catalogue data dynamically into the prompt.
  */
 async function extractWithChatGPT(
   text: string,
@@ -224,30 +294,51 @@ async function extractWithChatGPT(
   const apiKey = config.ai.openaiApiKey;
   if (!apiKey) return null;
 
-  const catalogList = PRODUCTS.map((p) => `id: "${p.id}", name: "${p.nameEn}", price: ${p.price}`).join("\n");
+  // Pass dynamic catalogue data (both products and categories)
+  const catalogList = PRODUCTS.map((p) => `id: "${p.id}", category: "${p.categoryId}", name: "${p.nameEn}", urdu: "${p.nameUr}", price: ${p.price}`).join("\n");
+  const categoriesList = CATEGORIES.map((c) => `id: "${c.id}", name: "${c.nameEn}", urdu: "${c.nameUr}"`).join("\n");
 
-  const systemPrompt = `You are the NLU engine for Cakestry Bakery WhatsApp Chatbot.
-Your job is to convert natural user text (English, Urdu, or Roman Urdu) into structured JSON.
+  const systemPrompt = `You are the primary semantic NLU engine for Cakestry Bakery WhatsApp Chatbot.
+Your job is to convert natural customer messages (English, Roman Urdu, Urdu Script, or mixed) into structured JSON.
 
-Catalogue of valid products:
+Authoritative Categories:
+${categoriesList}
+
+Authoritative Products:
 ${catalogList}
 
-Rules:
-1. Extract ALL products mentioned in the text with their quantities.
-2. If quantity is specified (e.g. "2 chocolate fudge cakes"), extract quantity: 2. Default quantity is 1 if unspecified.
-3. NEVER invent products not in the catalogue.
-4. If user requests language change (e.g. "English please", "Please conversation I'm english", "urdu mein baat karo"), set intent: "LANGUAGE_CHANGE" and targetLanguage: "en" | "ur".
-5. If user corrects quantity (e.g. "nahi 3 kar do", "make that 3"), set intent: "QUANTITY_UPDATE" and quantityUpdate: { quantity: N }.
-6. If user says to remove an item (e.g. "black forest nahi chahiye"), set intent: "REMOVE_FROM_CART" and removedProductId.
-7. Return JSON matching this exact structure:
+RULES FOR SEMANTIC COMPREHENSION:
+1. Intent Classification:
+   - "SELECT_CATEGORY" / "BROWSE_CATEGORY": Customer wants to explore/view a category (e.g. "pastries", "show cakes", "brownies dikhao"). Set selectedCategoryId. DO NOT set intent to ADD_TO_CART.
+   - "SELECT_PRODUCT": Customer specifically mentions one product without quantity (e.g. "molten lava", "nutella donut").
+   - "ADD_TO_CART": Customer explicitly asks to buy/order product(s) with quantities or clear ordering intent (e.g. "2 chocolate fudge cakes and 1 black forest", "bhai ek strawberry cheesecake aur 2 donuts add kar do").
+   - "QUANTITY_UPDATE": Customer changes or corrects a quantity (e.g. "make it 3", "actually 4", "nahi 2 kar do", "ek aur add karo"). Set quantityUpdate with targetProductId (from context if referenced relatively).
+   - "REMOVE_FROM_CART": Customer asks to remove an item (e.g. "remove the cake", "ye wala hata do", "don't want that"). Set removedProductId.
+   - "CHECKOUT": Customer wants to finalize / checkout (e.g. "checkout", "order confirm karna hai", "bill bnao").
+   - "PROVIDE_DETAILS": Customer provides delivery details (name, phone, address, time, pickup/delivery). Set customerDetails.
+   - "PAYMENT_INQUIRY": Customer asks how to pay or asks for bank/SadaPay details.
+   - "VERIFY_PAYMENT": Customer says they sent money or provides transaction reference.
+   - "INQUIRE_CATALOG": Customer asks for general menu or catalogue.
+   - "GREETING": Customer sends a greeting (hello, hi, salam, aoa).
+   - "LANGUAGE_CHANGE": Customer asks to switch language. Set targetLanguage ("en" | "ur").
+   - "HUMAN_ESCALATE": Customer asks to speak to human/agent/owner.
+2. Contextual References:
+   - When customer says "that one", "make it 3", "remove that", resolve targetProductId using Current Cart Items or recently mentioned product.
+3. Multi-Entity Understanding:
+   - Extract ALL mentioned products and their quantities into the "products" array.
+4. Output JSON strictly matching this structure:
 {
-  "intent": "LANGUAGE_CHANGE" | "ADD_TO_CART" | "QUANTITY_UPDATE" | "REMOVE_FROM_CART" | "INQUIRE_CATALOG" | "CHECK_ORDER" | "CANCEL_ORDER" | "HUMAN_ESCALATE" | "GREETING" | "GENERAL_QUERY",
+  "intent": "SELECT_CATEGORY" | "SELECT_PRODUCT" | "ADD_TO_CART" | "QUANTITY_UPDATE" | "REMOVE_FROM_CART" | "CHECKOUT" | "PROVIDE_DETAILS" | "PAYMENT_INQUIRY" | "VERIFY_PAYMENT" | "INQUIRE_CATALOG" | "GREETING" | "LANGUAGE_CHANGE" | "HUMAN_ESCALATE" | "GENERAL_QUERY",
   "targetLanguage": "en" | "ur",
   "language": "en" | "ur",
-  "products": [ { "productId": "exact_id", "productName": "name", "quantity": number } ],
+  "selectedCategoryId": "id_or_empty",
+  "selectedProductId": "id_or_empty",
+  "products": [ { "productId": "exact_id", "productName": "name", "quantity": number, "cheeseAddon": boolean } ],
   "quantityUpdate": { "quantity": number, "targetProductId": "optional_id" },
   "removedProductId": "optional_id",
-  "customerDetails": { "deliveryType": "DELIVERY" | "PICKUP", "name": "string", "phone": "string", "address": "string", "dateTime": "string" }
+  "customerDetails": { "deliveryType": "DELIVERY" | "PICKUP", "name": "string", "phone": "string", "address": "string", "dateTime": "string" },
+  "requiresClarification": boolean,
+  "clarificationQuestion": "string"
 }`;
 
   const res = await fetch(`${config.ai.openaiBaseUrl}/chat/completions`, {
@@ -262,7 +353,10 @@ Rules:
       temperature: 0.1,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Context Step: ${currentStep || "UNKNOWN"}. Current Cart Items: ${currentCartProductIds.join(", ")}. Text: "${text}"` },
+        {
+          role: "user",
+          content: `Context Step: ${currentStep || "UNKNOWN"}. Current Cart Items: ${currentCartProductIds.join(", ") || "empty"}. Customer Message: "${text}"`,
+        },
       ],
     }),
   });
@@ -277,17 +371,21 @@ Rules:
     intent: parsed.intent || "GENERAL_QUERY",
     targetLanguage: parsed.targetLanguage,
     language: parsed.language || "en",
+    selectedCategoryId: parsed.selectedCategoryId,
+    selectedProductId: parsed.selectedProductId,
     products: Array.isArray(parsed.products) ? parsed.products : [],
     quantityUpdate: parsed.quantityUpdate,
     removedProductId: parsed.removedProductId,
     customerDetails: parsed.customerDetails,
+    requiresClarification: parsed.requiresClarification || false,
+    clarificationQuestion: parsed.clarificationQuestion,
     rawText: text,
   };
 }
 
 /**
- * Deterministic Server-Side Offline NLU Parser
- * Handles English, Roman Urdu, Urdu, multi-line multi-product inputs, and quantity corrections.
+ * Data-Driven Server-Side Offline NLU Parser (Safe Fallback)
+ * Zero hardcoded product or category names. Works entirely from `PRODUCTS` and `CATEGORIES` data.
  */
 export function parseDeterministicNLU(
   input: string,
@@ -327,44 +425,47 @@ export function parseDeterministicNLU(
     return { intent: "CANCEL_ORDER", language, products: [], rawText: trimmed };
   }
 
-  // Deterministic button prefixes
-  if (trimmed.startsWith("cat:")) return { intent: "SELECT_CATEGORY", language, products: [], rawText: trimmed };
-  if (trimmed.startsWith("prod:")) return { intent: "SELECT_PRODUCT", language, products: [], rawText: trimmed };
-  if (trimmed.startsWith("qty:")) return { intent: "QUANTITY_UPDATE", language, products: [], rawText: trimmed };
-
-  // Category match
-  const catMatch = matchCategory(trimmed);
-  if (catMatch) {
-    return { intent: "SELECT_CATEGORY", language, products: [], rawText: trimmed };
-  }
-
-  // Check for Catalogue / Menu Inquiry
+  // Check for Item Removal (e.g. "remove black forest", "black forest nahi chahiye", "ye wala hata do", "remove that")
   if (
-    lowered.includes("kiya kiya") ||
-    lowered.includes("kya kya") ||
-    lowered.includes("kya items") ||
-    lowered.includes("aur kya") ||
-    lowered.includes("aur apky pass") ||
-    lowered.includes("show menu") ||
-    lowered.includes("what items")
+    lowered.includes("nahi chahiye") ||
+    lowered.includes("nahe chahiye") ||
+    lowered.includes("remove") ||
+    lowered.includes("delete") ||
+    lowered.includes("hata do") ||
+    lowered.includes("hata dein")
   ) {
-    return { intent: "INQUIRE_CATALOG", language, products: [], rawText: trimmed };
+    const cleanText = lowered
+      .replace(/(?:actually|yar|bhai|mujhe|mjhe|pls|please|nahi chahiye|nahe chahiye|remove|delete|cancel|don't want|ye wala|hata do|hata dein|that)/gi, "")
+      .trim();
+
+    const resolved = resolveProductAlias(cleanText);
+    const targetId = resolved?.id || (currentCartProductIds.length > 0 ? currentCartProductIds[currentCartProductIds.length - 1] : undefined);
+
+    if (targetId) {
+      return {
+        intent: "REMOVE_FROM_CART",
+        language,
+        products: [],
+        removedProductId: targetId,
+        rawText: trimmed,
+      };
+    }
   }
 
-  // Check for Quantity Correction (e.g. "Nahi 3 kar do", "Make that 3", "actually 3", "qty 3")
-  const qtyCorrectionMatch =
-    lowered.match(/(?:nahi|actually|make that|change to|set to|qty|quantity)\s*(\d+)/i) ||
-    lowered.match(/^(\d+)\s*(?:kar do|kar dein|kardo|krdo|pieces|pcs)?$/i);
+  // Check for Quantity Correction (e.g. "make it 3", "actually make it 4", "change to 2", "nahi 3 kar do", "3 pieces")
+  const isQtyCorrectionPhrase =
+    /(?:make\s*(?:it|that)?|change\s*(?:to)?|set\s*(?:to)?|actually|nahi|only)\b/i.test(lowered) ||
+    /^(?:\d+|\w+)\s*(?:kar do|kar dein|kardo|krdo|pieces|pcs)?$/i.test(lowered);
 
-  if (qtyCorrectionMatch && (currentStep === "ORDER_CONFIRM_ITEMS" || currentStep === "PRODUCT_QUANTITY" || currentCartProductIds.length > 0)) {
-    const newQty = parseInt(qtyCorrectionMatch[1], 10);
-    if (!isNaN(newQty) && newQty > 0) {
+  if (isQtyCorrectionPhrase && (currentStep === "ORDER_CONFIRM_ITEMS" || currentStep === "PRODUCT_QUANTITY" || currentCartProductIds.length > 0)) {
+    const parsedVal = parseWordOrDigitQuantity(lowered);
+    if (parsedVal && parsedVal > 0) {
       return {
         intent: "QUANTITY_UPDATE",
         language,
         products: [],
         quantityUpdate: {
-          quantity: newQty,
+          quantity: parsedVal,
           targetProductId: currentCartProductIds[currentCartProductIds.length - 1],
         },
         rawText: trimmed,
@@ -372,81 +473,79 @@ export function parseDeterministicNLU(
     }
   }
 
-  // Check for Item Removal (e.g. "black forest nahi chahiye", "remove black forest")
-  if (lowered.includes("nahi chahiye") || lowered.includes("nahe chahiye") || lowered.includes("remove") || lowered.includes("delete")) {
-    const cleanText = lowered.replace(/(?:actually|yar|bhai|mujhe|mjhe|pls|please|nahi chahiye|nahe chahiye|remove|delete|cancel|don't want)/gi, "").trim();
-    const resolved = resolveProductAlias(cleanText);
-    if (resolved) {
-      return {
-        intent: "REMOVE_FROM_CART",
-        language,
-        products: [],
-        removedProductId: resolved.id,
-        rawText: trimmed,
-      };
-    }
+  // Check for Relative Increment (e.g. "ek aur", "add another", "one more")
+  if (
+    (lowered.includes("ek aur") || lowered.includes("one more") || lowered.includes("add another") || lowered.includes("aik aur")) &&
+    currentCartProductIds.length > 0
+  ) {
+    return {
+      intent: "QUANTITY_UPDATE",
+      language,
+      products: [],
+      quantityUpdate: {
+        quantity: 2, // Relative bump handled in state machine
+        targetProductId: currentCartProductIds[currentCartProductIds.length - 1],
+      },
+      rawText: trimmed,
+    };
   }
 
-  // Multi-Product Extraction Phase
+  // Check for Checkout Intent
+  if (lowered === "checkout" || lowered === "check out" || lowered.includes("proceed to checkout") || lowered.includes("bill bana dein")) {
+    return { intent: "CHECKOUT", language, products: [], rawText: trimmed };
+  }
+
+  // Check for Category Match (Browsing intent)
+  const catMatch = matchCategory(trimmed);
+  if (catMatch) {
+    return { intent: "SELECT_CATEGORY", language, selectedCategoryId: catMatch.id, products: [], rawText: trimmed };
+  }
+
+  // Multi-Product Natural Language Extraction across live catalogue
   const extractedProducts: ExtractedProduct[] = [];
 
-  // Split multi-line input or phrases separated by newlines, commas, or 'and' / 'aur'
-  const lines = trimmed
+  // Split by line or natural delimiters ("and", "aur", commas)
+  const segments = trimmed
     .split(/[\n,;]|(?:\s+and\s+)|(?:\s+aur\s+)/i)
-    .map((l) => l.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
 
-  for (const line of lines) {
-    const lineLowered = line.toLowerCase();
+  for (const seg of segments) {
+    const segLower = seg.toLowerCase();
+    const parsedQty = parseWordOrDigitQuantity(segLower) || 1;
 
-    // Check if line contains a quantity number (e.g. "1 cream puffs", "2 chocolate fudge cakes", "karna hai 2")
-    const qtyMatch = lineLowered.match(/(?:^|\s)(\d+)(?:\s*x|\s+|$)/i) || lineLowered.match(/karna hai\s*(\d+)/i) || lineLowered.match(/(\d+)\s*$/);
-    let qty = 1;
-    if (qtyMatch) {
-      const parsedQty = parseInt(qtyMatch[1], 10);
-      if (!isNaN(parsedQty) && parsedQty > 0 && parsedQty <= 50) {
-        qty = parsedQty;
-      }
-    }
-
-    // Clean leading/trailing quantity digits/words for product resolution
-    const cleanedLine = lineLowered
-      .replace(/^(?:\s*\d+\s*x?\s*|\s*karna hai\s*\d+\s*)/i, "")
-      .replace(/(?:\s+\d+\s*)$/, "")
+    // Remove numbers and words for product resolution
+    const cleanedSeg = segLower
+      .replace(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|ek|aik|do|teen|char|chaar|paanch|che|saat|aath|nau|das)\b/gi, "")
+      .replace(/(?:x|pieces|pcs|karna hai|chahiye|add|kardo|kar do)/gi, "")
       .trim();
 
-    // Try resolving product against authoritative catalogue
-    const matchedProd = resolveProductAlias(lineLowered) || resolveProductAlias(cleanedLine);
+    const matchedProd = resolveProductAlias(cleanedSeg) || resolveProductAlias(segLower);
     if (matchedProd) {
-      // Check for duplicate in current extraction line
       const existing = extractedProducts.find((p) => p.productId === matchedProd.id);
       if (existing) {
-        existing.quantity = qty;
+        existing.quantity = parsedQty;
       } else {
         extractedProducts.push({
           productId: matchedProd.id,
           productName: matchedProd.nameEn,
-          quantity: qty,
-          cheeseAddon: lineLowered.includes("extra cheese") || lineLowered.includes("cheese"),
+          quantity: parsedQty,
+          cheeseAddon: segLower.includes("extra cheese") || segLower.includes("cheese"),
         });
       }
     }
   }
 
-  // If no products matched via line split, scan whole text across all products
+  // If no products matched via segments, test full text against live PRODUCTS dynamically
   if (extractedProducts.length === 0) {
     for (const prod of PRODUCTS) {
       const nameEnLower = prod.nameEn.toLowerCase();
-      if (lowered.includes(nameEnLower) || lowered.includes(prod.nameUr.toLowerCase())) {
-        // Extract quantity near the product name if possible
-        const prodRegex = new RegExp(`(\\d+)\\s*(?:x\\s*)?${nameEnLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i");
-        const match = lowered.match(prodRegex);
-        const qty = match ? parseInt(match[1], 10) : 1;
-
+      if (lowered.includes(nameEnLower) || (prod.nameUr && lowered.includes(prod.nameUr.toLowerCase()))) {
+        const parsedQty = parseWordOrDigitQuantity(lowered) || 1;
         extractedProducts.push({
           productId: prod.id,
           productName: prod.nameEn,
-          quantity: isNaN(qty) || qty <= 0 ? 1 : qty,
+          quantity: parsedQty,
           cheeseAddon: lowered.includes("extra cheese") || lowered.includes("cheese"),
         });
       }
@@ -462,6 +561,37 @@ export function parseDeterministicNLU(
     };
   }
 
+  // Check single product selection
+  const singleProd = resolveProductAlias(trimmed);
+  if (singleProd) {
+    return {
+      intent: "SELECT_PRODUCT",
+      language,
+      selectedProductId: singleProd.id,
+      products: [],
+      rawText: trimmed,
+    };
+  }
+
+  // Check for Menu / Catalog Inquiry (e.g. "menu", "mujhe menu de dein", "show menu", "kya items hain")
+  if (
+    /\bmenu\b/i.test(lowered) ||
+    /\bcatalog(?:ue)?\b/i.test(lowered) ||
+    lowered.includes("kiya kiya") ||
+    lowered.includes("kya kya") ||
+    lowered.includes("kya items") ||
+    lowered.includes("aur kya") ||
+    lowered.includes("aur apky pass") ||
+    lowered.includes("what items")
+  ) {
+    return { intent: "INQUIRE_CATALOG", language, products: [], rawText: trimmed };
+  }
+
+  // Check for Greeting (e.g. "hello", "hi", "salam", "aoa", "assalam-o-alaikum")
+  if (/^(?:hi|hello|hey|salam|slam|aoa|assalam[- ]?o[- ]?alaikum|adaab)\b/i.test(lowered)) {
+    return { intent: "GREETING", language, products: [], rawText: trimmed };
+  }
+
   return {
     intent: "GENERAL_QUERY",
     language,
@@ -469,3 +599,4 @@ export function parseDeterministicNLU(
     rawText: trimmed,
   };
 }
+
