@@ -88,6 +88,7 @@ export const QUANTITY_BUTTON_PREFIX = "qty:";
 export const OPTION_PREFIX = "opt:";
 export const ADDON_PREFIX = "addon:";
 export const ACTION_BUTTON_PREFIX = "act:";
+export const ENABLE_OPTIONAL_UPSELLS = false;
 
 export function initCakestryState(language: Language): CakestryStateData {
   return {
@@ -314,7 +315,7 @@ export function processCakestryTurn(
     if (prod) {
       state.orderDraft.items = addItemToCart(state.orderDraft.items, prod.id, qtyNum, false);
 
-      if (prod.allowCheeseAddon) {
+      if (ENABLE_OPTIONAL_UPSELLS && prod.allowCheeseAddon) {
         state.step = "CHEESE_ADDON";
         return renderCheeseAddonPrompt(state, prod, qtyNum);
       } else {
@@ -324,7 +325,7 @@ export function processCakestryTurn(
     }
   }
 
-  // 1e. Addon button
+  // 1e. Addon button (when upsells are enabled)
   if (state.step === "CHEESE_ADDON" && (trimmed.startsWith(ADDON_PREFIX) || lowered.includes("yes") || lowered.includes("no") || lowered.includes("چیز"))) {
     const wantsCheese = trimmed === `${ADDON_PREFIX}yes` || lowered.includes("yes") || lowered.includes("ہاں") || lowered.includes("چیز");
     const lastItemIndex = state.orderDraft.items.length - 1;
@@ -340,6 +341,8 @@ export function processCakestryTurn(
     trimmed === `${ACTION_BUTTON_PREFIX}menu` ||
     trimmed === `${ACTION_BUTTON_PREFIX}back_categories` ||
     trimmed === `${ACTION_BUTTON_PREFIX}add_more` ||
+    trimmed === "btn:menu" ||
+    trimmed === "btn:back_categories" ||
     lowered.includes("add more")
   ) {
     state.step = "MAIN_MENU";
@@ -348,7 +351,7 @@ export function processCakestryTurn(
     return renderMainMenu(state);
   }
 
-  if (trimmed === `${ACTION_BUTTON_PREFIX}checkout` || nlu.intent === "CHECKOUT") {
+  if (trimmed === `${ACTION_BUTTON_PREFIX}checkout` || trimmed === "btn:checkout" || nlu.intent === "CHECKOUT") {
     if (!state.orderDraft.items.length) {
       state.step = "MAIN_MENU";
       return renderMainMenu(state);
@@ -357,31 +360,25 @@ export function processCakestryTurn(
     return renderCheckoutDeliveryType(state);
   }
 
-  if (trimmed === `${ACTION_BUTTON_PREFIX}human` || nlu.intent === "HUMAN_ESCALATE") {
-    return {
-      handled: true,
-      state,
-      escalate: true,
-      reply: {
-        text:
-          state.language === "ur"
-            ? "🎫 آپ کی درخواست کیکسٹری بیکری ٹیم (0329-3110006) کو منتقل کر دی گئی ہے۔ ہماری ٹیم جلد آپ سے رابطہ کرے گی۔ 🕐"
-            : "🎫 Connecting you to the Cakestry Bakery team (0329-3110006). A representative will contact you shortly! 🕐",
-      },
-    };
-  }
-
-  if (nlu.intent === "CHECK_ORDER" || trimmed === `${ACTION_BUTTON_PREFIX}my_order` || trimmed === `${CATEGORY_BUTTON_PREFIX}my_order`) {
-    state.step = "MY_ORDER";
-    return renderMyOrder(state, waPhone);
-  }
-
   // =========================================================================
   // 2. ACTIVE STEP-BY-STEP CHECKOUT & CUSTOM CAKE CONVERSATIONS
-  // STRICT PARTIAL UPDATE: Only the specific field is updated. Cart items are untouched!
+  // STRICT PARTIAL UPDATE: Only the specific field is updated. Cart items are 100% UNTOUCHED!
   // =========================================================================
-  if (state.step === "CHECKOUT_DELIVERY_TYPE" && (trimmed.startsWith(OPTION_PREFIX) || lowered.includes("delivery") || lowered.includes("pickup") || lowered.includes("ڈیلیوری"))) {
-    const isPickup = trimmed === `${OPTION_PREFIX}pickup` || lowered.includes("pickup");
+  if (
+    state.step === "CHECKOUT_DELIVERY_TYPE" &&
+    (trimmed.startsWith(OPTION_PREFIX) ||
+      trimmed.startsWith("delivery:") ||
+      lowered.includes("delivery") ||
+      lowered.includes("pickup") ||
+      lowered.includes("ہوم") ||
+      lowered.includes("پک اپ") ||
+      lowered.includes("ڈیلیوری"))
+  ) {
+    const isPickup =
+      trimmed === `${OPTION_PREFIX}pickup` ||
+      trimmed === "delivery:pickup" ||
+      lowered.includes("pickup") ||
+      lowered.includes("پک اپ");
     state.orderDraft.deliveryType = isPickup ? "PICKUP" : "DELIVERY";
     state.step = "CHECKOUT_NAME";
     return renderCheckoutNamePrompt(state);
@@ -394,7 +391,13 @@ export function processCakestryTurn(
   }
 
   if (state.step === "CHECKOUT_PHONE") {
-    state.orderDraft.phone = trimmed === "use_wa_number" || trimmed === `${OPTION_PREFIX}use_wa_phone` ? waPhone : trimmed;
+    const isWaNum =
+      trimmed === "use_wa_number" ||
+      trimmed === `${OPTION_PREFIX}use_wa_phone` ||
+      trimmed === "btn:use_wa_phone" ||
+      trimmed.includes("use this") ||
+      trimmed.includes("یہی نمبر");
+    state.orderDraft.phone = isWaNum ? waPhone : trimmed;
     if (state.orderDraft.deliveryType === "DELIVERY") {
       state.step = "CHECKOUT_ADDRESS";
       return renderCheckoutAddressPrompt(state);
@@ -441,6 +444,30 @@ export function processCakestryTurn(
     if (!state.customCakeDraft) state.customCakeDraft = {};
     state.customCakeDraft.dateTime = trimmed;
     return renderCustomCakeComplete(state);
+  }
+
+  if (trimmed === `${ACTION_BUTTON_PREFIX}human` || trimmed === "btn:human" || nlu.intent === "HUMAN_ESCALATE") {
+    return {
+      handled: true,
+      state,
+      escalate: true,
+      reply: {
+        text:
+          state.language === "ur"
+            ? "🎫 آپ کی درخواست کیکسٹری بیکری ٹیم (0329-3110006) کو منتقل کر دی گئی ہے۔ ہماری ٹیم جلد آپ سے رابطہ کرے گی۔ 🕐"
+            : "🎫 Connecting you to the Cakestry Bakery team (0329-3110006). A representative will contact you shortly! 🕐",
+      },
+    };
+  }
+
+  if (
+    nlu.intent === "CHECK_ORDER" ||
+    trimmed === `${ACTION_BUTTON_PREFIX}my_order` ||
+    trimmed === "btn:my_order" ||
+    trimmed === `${CATEGORY_BUTTON_PREFIX}my_order`
+  ) {
+    state.step = "MY_ORDER";
+    return renderMyOrder(state, waPhone);
   }
 
   // =========================================================================
@@ -567,8 +594,8 @@ function renderWelcomeWithLanguageButtons(state: CakestryStateData): ActionOutco
 function renderMainMenu(state: CakestryStateData): ActionOutcome {
   const isUr = state.language === "ur";
   const text = isUr
-    ? "کیکسٹری بیکری میں آپ کو کیا پسند آئے گا؟ 👇\nزمرہ منتخب کریں:"
-    : "Welcome to Cakestry Bakery! 🎂\nHow can I help you today? Select a category below:";
+    ? "🎂 *کیکسٹری بیکری مینو اور اقسام* 🍰\n\nہم تازہ بیک شدہ اشیاء کی وسیع اقسام پیش کرتے ہیں:\nنیچے دیے گئے زمروں میں سے انتخاب کریں:"
+    : "🎂 *Cakestry Bakery Menu & Varieties* 🍰\n\nWe offer a rich variety of freshly baked goods:\nSelect a category below to explore products & prices! 👇";
 
   const rows: ListRow[] = CATEGORIES.map((cat) => ({
     id: `${CATEGORY_BUTTON_PREFIX}${cat.id}`,

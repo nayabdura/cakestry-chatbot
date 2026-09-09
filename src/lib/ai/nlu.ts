@@ -206,20 +206,56 @@ export async function parseCustomerInputNLU(
       rawText: trimmed,
     };
   }
-  if (trimmed.startsWith("addon:")) {
+  if (trimmed.startsWith("addon:") || trimmed.startsWith("opt:") || trimmed.startsWith("delivery:")) {
     return { intent: "PROVIDE_DETAILS", language: lang, products: [], rawText: trimmed };
   }
-  if (trimmed.startsWith("btn:menu") || trimmed.startsWith("btn:back_categories")) {
+  if (
+    trimmed.startsWith("btn:menu") ||
+    trimmed.startsWith("btn:back_categories") ||
+    trimmed.startsWith("act:menu") ||
+    trimmed.startsWith("act:back_categories")
+  ) {
     return { intent: "INQUIRE_CATALOG", language: lang, products: [], rawText: trimmed };
   }
-  if (trimmed.startsWith("btn:checkout")) {
+  if (trimmed.startsWith("btn:checkout") || trimmed.startsWith("act:checkout")) {
     return { intent: "CHECKOUT", language: lang, products: [], rawText: trimmed };
   }
-  if (trimmed.startsWith("btn:human")) {
+  if (trimmed.startsWith("btn:human") || trimmed.startsWith("act:human")) {
     return { intent: "HUMAN_ESCALATE", language: lang, products: [], rawText: trimmed };
   }
+  if (trimmed.startsWith("btn:my_order") || trimmed.startsWith("act:my_order")) {
+    return { intent: "CHECK_ORDER", language: lang, products: [], rawText: trimmed };
+  }
 
-  // 0b. High Priority Explicit Language Switch
+  // 0b. Active Checkout & Custom Cake Form Protection
+  // When filling customer details (name, phone, address, date/time), customer text is strictly form input!
+  if (currentStep?.startsWith("CHECKOUT_") || currentStep?.startsWith("CUSTOM_CAKE_")) {
+    const lowered = trimmed.toLowerCase();
+    const isCancelOrMenu =
+      lowered === "menu" ||
+      lowered === "cancel" ||
+      lowered === "start" ||
+      lowered === "restart" ||
+      lowered === "hata do" ||
+      lowered.includes("cancel order");
+
+    if (!isCancelOrMenu) {
+      return {
+        intent: "PROVIDE_DETAILS",
+        language: lang,
+        products: [],
+        customerDetails: {
+          name: currentStep === "CHECKOUT_NAME" ? trimmed : undefined,
+          phone: currentStep === "CHECKOUT_PHONE" ? trimmed : undefined,
+          address: currentStep === "CHECKOUT_ADDRESS" ? trimmed : undefined,
+          dateTime: currentStep === "CHECKOUT_DATE_TIME" ? trimmed : undefined,
+        },
+        rawText: trimmed,
+      };
+    }
+  }
+
+  // 0c. High Priority Explicit Language Switch
   const langChange = detectLanguageChangeIntent(trimmed);
   if (langChange.isLanguageChange && langChange.targetLanguage) {
     return {
@@ -251,6 +287,16 @@ export async function parseCustomerInputNLU(
             }
           }
           llmResult.products = validatedProducts;
+
+          // If customer named a single product WITHOUT quantity or ordering verb -> SELECT_PRODUCT (ask quantity!)
+          const hasExplicitQty = typeof parseWordOrDigitQuantity(trimmed) === "number";
+          const hasOrderVerb = /(?:add|order|chahiye|bhejo|kar do|kardo|bana do|pieces|pcs)\b/i.test(trimmed);
+
+          if (llmResult.products.length === 1 && !hasExplicitQty && !hasOrderVerb) {
+            llmResult.intent = "SELECT_PRODUCT";
+            llmResult.selectedProductId = llmResult.products[0].productId;
+            llmResult.products = [];
+          }
         }
 
         // Validate category ID if present
@@ -496,11 +542,6 @@ export function parseDeterministicNLU(
   }
 
   // Check for Category Match (Browsing intent)
-  const catMatch = matchCategory(trimmed);
-  if (catMatch) {
-    return { intent: "SELECT_CATEGORY", language, selectedCategoryId: catMatch.id, products: [], rawText: trimmed };
-  }
-
   // Multi-Product Natural Language Extraction across live catalogue
   const extractedProducts: ExtractedProduct[] = [];
 
@@ -510,9 +551,21 @@ export function parseDeterministicNLU(
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // Check if customer provided explicit quantity or ordering intent
+  const parsedFullQty = parseWordOrDigitQuantity(lowered);
+  const hasOrderingIntent =
+    parsedFullQty != null ||
+    lowered.includes("add") ||
+    lowered.includes("order") ||
+    lowered.includes("chahiye") ||
+    lowered.includes("bhejo") ||
+    lowered.includes("kar do") ||
+    lowered.includes("kardo") ||
+    lowered.includes("bana do");
+
   for (const seg of segments) {
     const segLower = seg.toLowerCase();
-    const parsedQty = parseWordOrDigitQuantity(segLower) || 1;
+    const parsedQty = parseWordOrDigitQuantity(segLower);
 
     // Remove numbers and words for product resolution
     const cleanedSeg = segLower
@@ -522,16 +575,28 @@ export function parseDeterministicNLU(
 
     const matchedProd = resolveProductAlias(cleanedSeg) || resolveProductAlias(segLower);
     if (matchedProd) {
-      const existing = extractedProducts.find((p) => p.productId === matchedProd.id);
-      if (existing) {
-        existing.quantity = parsedQty;
+      if (typeof parsedQty === "number" || hasOrderingIntent || segments.length > 1) {
+        const qty = parsedQty || parsedFullQty || 1;
+        const existing = extractedProducts.find((p) => p.productId === matchedProd.id);
+        if (existing) {
+          existing.quantity = qty;
+        } else {
+          extractedProducts.push({
+            productId: matchedProd.id,
+            productName: matchedProd.nameEn,
+            quantity: qty,
+            cheeseAddon: segLower.includes("extra cheese") || segLower.includes("cheese"),
+          });
+        }
       } else {
-        extractedProducts.push({
-          productId: matchedProd.id,
-          productName: matchedProd.nameEn,
-          quantity: parsedQty,
-          cheeseAddon: segLower.includes("extra cheese") || segLower.includes("cheese"),
-        });
+        // Customer named single product without quantity or ordering verb -> ask quantity!
+        return {
+          intent: "SELECT_PRODUCT",
+          language,
+          selectedProductId: matchedProd.id,
+          products: [],
+          rawText: trimmed,
+        };
       }
     }
   }
@@ -541,13 +606,22 @@ export function parseDeterministicNLU(
     for (const prod of PRODUCTS) {
       const nameEnLower = prod.nameEn.toLowerCase();
       if (lowered.includes(nameEnLower) || (prod.nameUr && lowered.includes(prod.nameUr.toLowerCase()))) {
-        const parsedQty = parseWordOrDigitQuantity(lowered) || 1;
-        extractedProducts.push({
-          productId: prod.id,
-          productName: prod.nameEn,
-          quantity: parsedQty,
-          cheeseAddon: lowered.includes("extra cheese") || lowered.includes("cheese"),
-        });
+        if (hasOrderingIntent) {
+          extractedProducts.push({
+            productId: prod.id,
+            productName: prod.nameEn,
+            quantity: parsedFullQty || 1,
+            cheeseAddon: lowered.includes("extra cheese") || lowered.includes("cheese"),
+          });
+        } else {
+          return {
+            intent: "SELECT_PRODUCT",
+            language,
+            selectedProductId: prod.id,
+            products: [],
+            rawText: trimmed,
+          };
+        }
       }
     }
   }
@@ -571,6 +645,12 @@ export function parseDeterministicNLU(
       products: [],
       rawText: trimmed,
     };
+  }
+
+  // Check for Category Match (Browsing intent, runs when no specific product is ordered)
+  const catMatch = matchCategory(trimmed);
+  if (catMatch) {
+    return { intent: "SELECT_CATEGORY", language, selectedCategoryId: catMatch.id, products: [], rawText: trimmed };
   }
 
   // Check for Menu / Catalog Inquiry (e.g. "menu", "mujhe menu de dein", "show menu", "kya items hain")
