@@ -235,25 +235,97 @@ export function processCakestryTurn(
 
   // =========================================================================
   // 1b. INITIAL CONTACT / WELCOME / LANGUAGE ONBOARDING
-  // New conversations start with welcome + real language buttons.
-  // If the customer already asked for something, remember it as pendingIntent!
   // =========================================================================
   if (state.step === "WELCOME") {
-    state.step = "LANGUAGE_SELECTION";
-    if (nlu.intent !== "GREETING" && nlu.intent !== "GENERAL_QUERY") {
-      state.pendingIntent = nlu;
+    if (nlu.intent === "GREETING") {
+      state.step = "LANGUAGE_SELECTION";
+      return renderWelcomeWithLanguageButtons(state);
     }
-    return renderWelcomeWithLanguageButtons(state);
+    // Customer jumped straight into conversation/questions
+    state.language = /[\u0600-\u06FF]/.test(trimmed) ? "ur" : "en";
+    state.step = "MAIN_MENU";
   }
 
   if (state.step === "LANGUAGE_SELECTION") {
-    if (nlu.intent !== "GREETING" && nlu.intent !== "GENERAL_QUERY") {
-      state.pendingIntent = nlu;
-    }
-    return renderWelcomeWithLanguageButtons(state);
+    // If the customer sends ANY text after language buttons were sent, do NOT loop buttons!
+    const isUr = /[\u0600-\u06FF]/.test(trimmed) || lowered.includes("urdu") || lowered.includes("اردو");
+    state.language = isUr ? "ur" : (state.language || "en");
+    state.step = "MAIN_MENU";
   }
 
-  // 1c. Category button or NLU Browse Category Intent (READ-ONLY: Cart is NEVER mutated)
+  // =========================================================================
+  // 1c. HIGH PRIORITY ORDER CANCELLATION (Full clear, safe reset, no item popping!)
+  // =========================================================================
+  if (nlu.intent === "CANCEL_ORDER") {
+    state.orderDraft = { items: [] };
+    state.selectedCategory = undefined;
+    state.selectedProduct = undefined;
+    state.step = "MAIN_MENU";
+
+    const isUr = state.language === "ur";
+    const text = isUr
+      ? "✅ آپ کا آرڈر / کارٹ کینسل کر دیا گیا ہے۔\n\nاگر آپ کو کچھ اور چاہیے ہو یا کوئی سوال ہو تو ہمیں بتائیں۔ شکریہ! 🎂"
+      : "✅ Your order/cart has been canceled.\n\nIf you would like to order anything else or have questions, please let us know! 🎂";
+
+    const rows: ListRow[] = CATEGORIES.map((cat) => ({
+      id: `${CATEGORY_BUTTON_PREFIX}${cat.id}`,
+      title: (isUr ? `${cat.icon} ${cat.nameUr}` : `${cat.icon} ${cat.nameEn}`).slice(0, 24),
+      description: (isUr ? cat.descriptionUr : cat.descriptionEn).slice(0, 72),
+    }));
+
+    return {
+      handled: true,
+      state,
+      reply: {
+        text,
+        list: {
+          label: isUr ? "مینو کے زمرے" : "Main Menu",
+          rows,
+        },
+      },
+    };
+  }
+
+  // =========================================================================
+  // 1d. ORDER / CART INSPECTION ("what is in my order", "cart items dikhao", "meri cart")
+  // =========================================================================
+  if (
+    nlu.intent === "CHECK_ORDER" ||
+    trimmed === `${ACTION_BUTTON_PREFIX}my_order` ||
+    trimmed === "btn:my_order" ||
+    trimmed === `${CATEGORY_BUTTON_PREFIX}my_order`
+  ) {
+    if (state.orderDraft.items.length > 0) {
+      state.step = "ORDER_CONFIRM_ITEMS";
+      return renderOrderConfirmItems(state);
+    }
+
+    state.step = "MAIN_MENU";
+    const isUr = state.language === "ur";
+    const text = isUr
+      ? "🛒 *آپ کی کارٹ فی الحال خالی ہے۔*\n\nہماری تازہ بیکری اشیاء دیکھنے کے لیے نیچے مینو میں سے کیٹیگری منتخب کریں: 🎂"
+      : "🛒 *Your cart is currently empty.*\n\nPlease choose a category from our menu below to explore our freshly baked treats: 🎂";
+
+    const rows: ListRow[] = CATEGORIES.map((cat) => ({
+      id: `${CATEGORY_BUTTON_PREFIX}${cat.id}`,
+      title: (isUr ? `${cat.icon} ${cat.nameUr}` : `${cat.icon} ${cat.nameEn}`).slice(0, 24),
+      description: (isUr ? cat.descriptionUr : cat.descriptionEn).slice(0, 72),
+    }));
+
+    return {
+      handled: true,
+      state,
+      reply: {
+        text,
+        list: {
+          label: isUr ? "مینو کے زمرے" : "Main Categories",
+          rows,
+        },
+      },
+    };
+  }
+
+  // 1e. Category button or NLU Browse Category Intent (READ-ONLY: Cart is NEVER mutated)
   if (trimmed.startsWith(CATEGORY_BUTTON_PREFIX) || nlu.intent === "SELECT_CATEGORY") {
     const catId = trimmed.startsWith(CATEGORY_BUTTON_PREFIX)
       ? trimmed.slice(CATEGORY_BUTTON_PREFIX.length)
@@ -265,7 +337,10 @@ export function processCakestryTurn(
       return renderCustomCakeWeight(state);
     }
     if (catId === "my_order") {
-      state.step = "MY_ORDER";
+      if (state.orderDraft.items.length > 0) {
+        state.step = "ORDER_CONFIRM_ITEMS";
+        return renderOrderConfirmItems(state);
+      }
       return renderMyOrder(state, waPhone);
     }
     if (catId === "location") {
@@ -280,7 +355,7 @@ export function processCakestryTurn(
     }
   }
 
-  // 1c. Product button or NLU Select Product Intent (READ-ONLY: Cart is NEVER mutated here)
+  // 1f. Product button or NLU Select Product Intent (READ-ONLY: Cart is NEVER mutated here)
   if (trimmed.startsWith(PRODUCT_BUTTON_PREFIX) || nlu.intent === "SELECT_PRODUCT") {
     const prodId = trimmed.startsWith(PRODUCT_BUTTON_PREFIX)
       ? trimmed.slice(PRODUCT_BUTTON_PREFIX.length)
@@ -356,8 +431,24 @@ export function processCakestryTurn(
       state.step = "MAIN_MENU";
       return renderMainMenu(state);
     }
-    state.step = "CHECKOUT_DELIVERY_TYPE";
-    return renderCheckoutDeliveryType(state);
+    if (!state.orderDraft.deliveryType) {
+      state.step = "CHECKOUT_DELIVERY_TYPE";
+      return renderCheckoutDeliveryType(state);
+    }
+    if (!state.orderDraft.customerName) {
+      state.step = "CHECKOUT_NAME";
+      return renderCheckoutNamePrompt(state);
+    }
+    if (!state.orderDraft.phone) {
+      state.step = "CHECKOUT_PHONE";
+      return renderCheckoutPhonePrompt(state, waPhone);
+    }
+    if (state.orderDraft.deliveryType === "DELIVERY" && !state.orderDraft.deliveryAddress) {
+      state.step = "CHECKOUT_ADDRESS";
+      return renderCheckoutAddressPrompt(state);
+    }
+    state.step = "CHECKOUT_DATE_TIME";
+    return renderCheckoutDateTimePrompt(state);
   }
 
   // =========================================================================
@@ -380,14 +471,36 @@ export function processCakestryTurn(
       lowered.includes("pickup") ||
       lowered.includes("پک اپ");
     state.orderDraft.deliveryType = isPickup ? "PICKUP" : "DELIVERY";
-    state.step = "CHECKOUT_NAME";
-    return renderCheckoutNamePrompt(state);
+
+    // Auto-skip Name and Phone if already captured!
+    if (!state.orderDraft.customerName) {
+      state.step = "CHECKOUT_NAME";
+      return renderCheckoutNamePrompt(state);
+    }
+    if (!state.orderDraft.phone) {
+      state.step = "CHECKOUT_PHONE";
+      return renderCheckoutPhonePrompt(state, waPhone);
+    }
+    if (state.orderDraft.deliveryType === "DELIVERY" && !state.orderDraft.deliveryAddress) {
+      state.step = "CHECKOUT_ADDRESS";
+      return renderCheckoutAddressPrompt(state);
+    }
+    state.step = "CHECKOUT_DATE_TIME";
+    return renderCheckoutDateTimePrompt(state);
   }
 
   if (state.step === "CHECKOUT_NAME" && trimmed.length >= 2) {
     state.orderDraft.customerName = trimmed;
-    state.step = "CHECKOUT_PHONE";
-    return renderCheckoutPhonePrompt(state, waPhone);
+    if (!state.orderDraft.phone) {
+      state.step = "CHECKOUT_PHONE";
+      return renderCheckoutPhonePrompt(state, waPhone);
+    }
+    if (state.orderDraft.deliveryType === "DELIVERY" && !state.orderDraft.deliveryAddress) {
+      state.step = "CHECKOUT_ADDRESS";
+      return renderCheckoutAddressPrompt(state);
+    }
+    state.step = "CHECKOUT_DATE_TIME";
+    return renderCheckoutDateTimePrompt(state);
   }
 
   if (state.step === "CHECKOUT_PHONE") {
@@ -398,7 +511,7 @@ export function processCakestryTurn(
       trimmed.includes("use this") ||
       trimmed.includes("یہی نمبر");
     state.orderDraft.phone = isWaNum ? waPhone : trimmed;
-    if (state.orderDraft.deliveryType === "DELIVERY") {
+    if (state.orderDraft.deliveryType === "DELIVERY" && !state.orderDraft.deliveryAddress) {
       state.step = "CHECKOUT_ADDRESS";
       return renderCheckoutAddressPrompt(state);
     } else {
@@ -460,15 +573,6 @@ export function processCakestryTurn(
     };
   }
 
-  if (
-    nlu.intent === "CHECK_ORDER" ||
-    trimmed === `${ACTION_BUTTON_PREFIX}my_order` ||
-    trimmed === "btn:my_order" ||
-    trimmed === `${CATEGORY_BUTTON_PREFIX}my_order`
-  ) {
-    state.step = "MY_ORDER";
-    return renderMyOrder(state, waPhone);
-  }
 
   // =========================================================================
   // 3. CART OPERATIONS (Generic, isolated, and persistent)
@@ -782,10 +886,15 @@ function renderOrderSummaryAndPayment(state: CakestryStateData): ActionOutcome {
     text += `- ${i.quantity}x ${isUr ? i.product.nameUr : i.product.nameEn}${cheeseStr} @ Rs. ${i.product.price} = Rs. ${i.lineTotal.toLocaleString()}\n`;
   });
 
-  text += `--------------------------------\n`;
   text += isUr ? `سب ٹوٹل: Rs. ${totals.subtotal.toLocaleString()}\n` : `Subtotal: Rs. ${totals.subtotal.toLocaleString()}\n`;
   text += isUr ? `ڈیلیوری فیس: Rs. ${totals.deliveryFee.toLocaleString()}\n` : `Delivery Fee: Rs. ${totals.deliveryFee.toLocaleString()}\n`;
   text += isUr ? `*کل رقم: Rs. ${totals.total.toLocaleString()}*\n\n` : `*TOTAL AMOUNT: Rs. ${totals.total.toLocaleString()}*\n\n`;
+
+  const timingAdvisory = isUr
+    ? `⚠️ *نوٹ:* بیکری سے ایک بار ٹائمنگ ضرور کنسلٹ کر لیں (بیکری کے اوقات روزانہ 11:00 AM سے 2:00 AM ہیں)، لیکن ہم آپ کا آرڈر درج کر رہے ہیں۔ مزید معلومات یا فوری رابطہ کے لیے *${BAKERY_BUSINESS_INFO.phone}* پر رابطہ کر سکتے ہیں۔ 🕐\n\n`
+    : `⚠️ *Note:* Please consult the bakery once regarding timing (operating hours are daily 11:00 AM to 2:00 AM), but we are recording your order. For further details or inquiries, please contact *${BAKERY_BUSINESS_INFO.phone}*. 🕐\n\n`;
+
+  text += timingAdvisory;
 
   text += isUr
     ? `💳 *سادا پے (SadaPay) ادائیگی کی تفصیلات:*\n` +

@@ -267,6 +267,58 @@ export async function parseCustomerInputNLU(
     };
   }
 
+  const lowered = trimmed.toLowerCase();
+
+  // 0d. High Priority Order Cancellation (Never misclassify as item removal!)
+  const isCancelOrder =
+    lowered === "cancel" ||
+    lowered.includes("cancel order") ||
+    lowered.includes("cancel my order") ||
+    lowered.includes("order cancel") ||
+    lowered.includes("cancel kardo") ||
+    lowered.includes("cancel kar do") ||
+    lowered.includes("cancel kar dain") ||
+    lowered.includes("cancel kr do") ||
+    lowered.includes("cancel kardein") ||
+    (lowered.includes("cancel") && (lowered.includes("order") || lowered.includes("bhai") || lowered.includes("service")));
+
+  if (isCancelOrder) {
+    return { intent: "CANCEL_ORDER", language: lang, products: [], rawText: trimmed };
+  }
+
+  // 0e. High Priority Order & Cart Inspection ("what is in my order", "cart items dikhao", "meri cart")
+  const isCheckOrder =
+    lowered.includes("what is in my order") ||
+    lowered.includes("what is in my cart") ||
+    lowered.includes("what is my order") ||
+    lowered.includes("order mai kya hai") ||
+    lowered.includes("order me kya hai") ||
+    lowered.includes("cart items") ||
+    lowered.includes("cart item") ||
+    lowered.includes("meri cart") ||
+    lowered.includes("cart dikhao") ||
+    lowered.includes("show cart") ||
+    lowered.includes("view cart") ||
+    lowered.includes("check my order") ||
+    lowered.includes("my order") ||
+    lowered.includes("mera order");
+
+  if (isCheckOrder) {
+    return { intent: "CHECK_ORDER", language: lang, products: [], rawText: trimmed };
+  }
+
+  // 0f. Direct Menu Request
+  if (
+    lowered === "menu" ||
+    lowered === "show menu" ||
+    lowered === "main menu" ||
+    lowered === "menu please" ||
+    lowered === "please menu" ||
+    lowered === "مینو"
+  ) {
+    return { intent: "INQUIRE_CATALOG", language: lang, products: [], rawText: trimmed };
+  }
+
   // 1. PRIMARY: Semantic Understanding Layer via LLM (OpenAI / ChatGPT)
   if (config.ai.openaiApiKey) {
     try {
@@ -359,7 +411,9 @@ RULES FOR SEMANTIC COMPREHENSION:
    - "SELECT_PRODUCT": Customer specifically mentions one product without quantity (e.g. "molten lava", "nutella donut").
    - "ADD_TO_CART": Customer explicitly asks to buy/order product(s) with quantities or clear ordering intent (e.g. "2 chocolate fudge cakes and 1 black forest", "bhai ek strawberry cheesecake aur 2 donuts add kar do").
    - "QUANTITY_UPDATE": Customer changes or corrects a quantity (e.g. "make it 3", "actually 4", "nahi 2 kar do", "ek aur add karo"). Set quantityUpdate with targetProductId (from context if referenced relatively).
-   - "REMOVE_FROM_CART": Customer asks to remove an item (e.g. "remove the cake", "ye wala hata do", "don't want that"). Set removedProductId.
+   - "CANCEL_ORDER": Customer wants to cancel their entire active order or cart (e.g. "cancel my order", "order cancel kar do", "cancel kardo", "no thank you cancel my order"). DO NOT set intent to REMOVE_FROM_CART.
+   - "CHECK_ORDER": Customer asks to view their active order or cart (e.g. "what is in my order", "order mai kya hai", "cart items dikhao", "meri cart", "show cart", "cart me kya hai").
+   - "REMOVE_FROM_CART": Customer asks to remove a SPECIFIC item (e.g. "remove the cake", "ye wala hata do", "don't want that item"). Set removedProductId. DO NOT use if customer says "cancel order" or "all items".
    - "CHECKOUT": Customer wants to finalize / checkout (e.g. "checkout", "order confirm karna hai", "bill bnao").
    - "PROVIDE_DETAILS": Customer provides delivery details (name, phone, address, time, pickup/delivery). Set customerDetails.
    - "PAYMENT_INQUIRY": Customer asks how to pay or asks for bank/SadaPay details.
@@ -368,13 +422,14 @@ RULES FOR SEMANTIC COMPREHENSION:
    - "GREETING": Customer sends a greeting (hello, hi, salam, aoa).
    - "LANGUAGE_CHANGE": Customer asks to switch language. Set targetLanguage ("en" | "ur").
    - "HUMAN_ESCALATE": Customer asks to speak to human/agent/owner.
+   - "GENERAL_QUERY": Customer asks general questions, makes complaints, gives feedback, or converses naturally (e.g. "apki bakery kidhar hai", "services are bad", "is tarha customer ko deal karty", "oye", "bye").
 2. Contextual References:
    - When customer says "that one", "make it 3", "remove that", resolve targetProductId using Current Cart Items or recently mentioned product.
 3. Multi-Entity Understanding:
    - Extract ALL mentioned products and their quantities into the "products" array.
 4. Output JSON strictly matching this structure:
 {
-  "intent": "SELECT_CATEGORY" | "SELECT_PRODUCT" | "ADD_TO_CART" | "QUANTITY_UPDATE" | "REMOVE_FROM_CART" | "CHECKOUT" | "PROVIDE_DETAILS" | "PAYMENT_INQUIRY" | "VERIFY_PAYMENT" | "INQUIRE_CATALOG" | "GREETING" | "LANGUAGE_CHANGE" | "HUMAN_ESCALATE" | "GENERAL_QUERY",
+  "intent": "SELECT_CATEGORY" | "SELECT_PRODUCT" | "ADD_TO_CART" | "QUANTITY_UPDATE" | "REMOVE_FROM_CART" | "CHECKOUT" | "PROVIDE_DETAILS" | "PAYMENT_INQUIRY" | "VERIFY_PAYMENT" | "INQUIRE_CATALOG" | "CHECK_ORDER" | "CANCEL_ORDER" | "GREETING" | "LANGUAGE_CHANGE" | "HUMAN_ESCALATE" | "GENERAL_QUERY",
   "targetLanguage": "en" | "ur",
   "language": "en" | "ur",
   "selectedCategoryId": "id_or_empty",
@@ -461,31 +516,62 @@ export function parseDeterministicNLU(
     return { intent: "HUMAN_ESCALATE", language, products: [], rawText: trimmed };
   }
 
-  // Check for Order Status / Tracking
-  if (lowered.includes("my order") || lowered.includes("track order") || lowered.includes("status") || lowered.includes("order status")) {
+  // Check for Order Status / Tracking / Cart Inspection
+  if (
+    lowered.includes("what is in my order") ||
+    lowered.includes("what is in my cart") ||
+    lowered.includes("what is my order") ||
+    lowered.includes("order mai kya hai") ||
+    lowered.includes("order me kya hai") ||
+    lowered.includes("cart items") ||
+    lowered.includes("cart item") ||
+    lowered.includes("meri cart") ||
+    lowered.includes("cart dikhao") ||
+    lowered.includes("show cart") ||
+    lowered.includes("view cart") ||
+    lowered.includes("my order") ||
+    lowered.includes("track order") ||
+    lowered.includes("order status") ||
+    lowered.includes("mera order")
+  ) {
     return { intent: "CHECK_ORDER", language, products: [], rawText: trimmed };
   }
 
-  // Check for Cancellation
-  if (lowered.includes("cancel order") || lowered.includes("cancel my order") || lowered.includes("order cancel")) {
+  // Check for Cancellation (Clean and high-priority)
+  const isCancelDeterministic =
+    lowered === "cancel" ||
+    lowered.includes("cancel order") ||
+    lowered.includes("cancel my order") ||
+    lowered.includes("order cancel") ||
+    lowered.includes("cancel kardo") ||
+    lowered.includes("cancel kar do") ||
+    lowered.includes("cancel kar dain") ||
+    lowered.includes("cancel kr do") ||
+    lowered.includes("cancel kardein") ||
+    (lowered.includes("cancel") && (lowered.includes("order") || lowered.includes("bhai") || lowered.includes("service")));
+
+  if (isCancelDeterministic) {
     return { intent: "CANCEL_ORDER", language, products: [], rawText: trimmed };
   }
 
-  // Check for Item Removal (e.g. "remove black forest", "black forest nahi chahiye", "ye wala hata do", "remove that")
-  if (
-    lowered.includes("nahi chahiye") ||
-    lowered.includes("nahe chahiye") ||
-    lowered.includes("remove") ||
-    lowered.includes("delete") ||
-    lowered.includes("hata do") ||
-    lowered.includes("hata dein")
-  ) {
+  // Check for Item Removal (Strict: only when user targets a specific item, NEVER for "all items" or "cancel")
+  const isRemovalPhrase =
+    !lowered.includes("all items") &&
+    !lowered.includes("cancel") &&
+    (lowered.includes("nahi chahiye") ||
+      lowered.includes("nahe chahiye") ||
+      lowered.includes("remove") ||
+      lowered.includes("delete") ||
+      lowered.includes("hata do") ||
+      lowered.includes("hata dein"));
+
+  if (isRemovalPhrase) {
     const cleanText = lowered
-      .replace(/(?:actually|yar|bhai|mujhe|mjhe|pls|please|nahi chahiye|nahe chahiye|remove|delete|cancel|don't want|ye wala|hata do|hata dein|that)/gi, "")
+      .replace(/(?:actually|yar|bhai|mujhe|mjhe|pls|please|nahi chahiye|nahe chahiye|remove|delete|don't want|ye wala|hata do|hata dein|that)/gi, "")
       .trim();
 
     const resolved = resolveProductAlias(cleanText);
-    const targetId = resolved?.id || (currentCartProductIds.length > 0 ? currentCartProductIds[currentCartProductIds.length - 1] : undefined);
+    const targetId = resolved?.id || (currentCartProductIds.length > 0 && (lowered.includes("ye wala") || lowered.includes("this item") || lowered.includes("last item")) ? currentCartProductIds[currentCartProductIds.length - 1] : undefined);
 
     if (targetId) {
       return {

@@ -70,16 +70,15 @@ export async function verifyPaymentScreenshot(
     }
   }
 
-  // If text explicitly contains Ejaz Ahmad and correct total or valid transaction format
-  if (containsEjaz || text.includes("03293110006") || text.includes("0329-3110006") || text.includes("sadapay")) {
-    return {
-      status: "verified",
-      customerMessage:
-        "✅ *Payment Verified!* 🎉\n" +
-        "Thank you! Your payment has been confirmed for owner *EJAZ AHMAD*.\n" +
-        "Your order is now confirmed and sent to our baking kitchen. We will notify you when it's ready!",
-    };
-  }
+  // Text-based receipts or transaction IDs must ALWAYS be manually reviewed by bakery staff
+  // NEVER auto-verify payments based on simple keyword matches like "sadapay" or "ejaz"!
+  return {
+    status: "manual_review",
+    reason: "Payment screenshot or transaction details require manual review by bakery staff.",
+    customerMessage:
+      "🔍 *Payment Receipt Received for Review*\n" +
+      "Thank you! Your payment details have been submitted to the Cakestry Bakery team for verification. We will confirm your order as soon as our accounts team confirms the payment! 🎂",
+  };
 
   // If unclear, default to manual review (Never auto-verify invalid images!)
   return {

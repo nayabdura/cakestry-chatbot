@@ -142,6 +142,15 @@ async function route(message: InboundMessage): Promise<void> {
   }
 
   // 3. Structured AI NLU Extraction
+  if (storedCapture?.orderDraft) {
+    if (!storedCapture.orderDraft.customerName && contact.profileName) {
+      storedCapture.orderDraft.customerName = contact.profileName;
+    }
+    if (!storedCapture.orderDraft.phone && phone) {
+      storedCapture.orderDraft.phone = phone;
+    }
+  }
+
   const currentCartProducts = storedCapture?.orderDraft?.items?.map((i) => i.productId) || [];
   const nluResult = await parseCustomerInputNLU(answer, storedCapture?.step, currentCartProducts);
 
@@ -182,7 +191,13 @@ async function route(message: InboundMessage): Promise<void> {
     return;
   }
 
-  // 6. Freeform natural language question answered by ChatGPT Assistant
+  // Persist updated state even when unhandled (e.g. language updated, moved from LANGUAGE_SELECTION)
+  await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: { capture: outcome.state as unknown as Prisma.InputJsonValue },
+  });
+
+  // 6. Freeform natural language question or complaint answered by ChatGPT Assistant
   const history = await loadHistory(conversation.id);
   const plan = planAssistantTurn(history, { department: "MARKETING" });
   await answerWithAssistant(context, history, plan);

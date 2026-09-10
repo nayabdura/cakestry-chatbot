@@ -109,6 +109,9 @@ export const CATEGORIES: CakestryCategory[] = [
     descriptionEn: "Custom design cakes tailored to your theme and event.",
     descriptionUr: "آپ کی خواہش کے مطابق کسٹم ڈیزائن کیکس۔",
   },
+];
+
+export const NAV_ACTIONS = [
   {
     id: "my_order",
     nameEn: "My Order / Booking",
