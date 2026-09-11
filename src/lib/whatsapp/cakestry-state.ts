@@ -489,7 +489,15 @@ export function processCakestryTurn(
     return renderCheckoutDateTimePrompt(state);
   }
 
+  const isQuestionInput =
+    trimmed.includes("?") ||
+    trimmed.includes("؟") ||
+    /\b(kya|kiya|kahan|kidhar|kab|kitna|kitne|kitni|kaise|kese|kesa|kaisi|kyun|kyu|kon|kaun|konsa|konsi|what|where|when|why|how|which|who|price|prices|rate|rates|cost|timing|timings|charges|delivery|fee|fees|menu|flavor|flavors|discount|discounts|address|location|eggless|sugar-free|custom|phone|number)\b/i.test(trimmed);
+
   if (state.step === "CHECKOUT_NAME" && trimmed.length >= 2) {
+    if (isQuestionInput) {
+      return { handled: false, state, reply: { text: "" } };
+    }
     state.orderDraft.customerName = trimmed;
     if (!state.orderDraft.phone) {
       state.step = "CHECKOUT_PHONE";
@@ -504,6 +512,9 @@ export function processCakestryTurn(
   }
 
   if (state.step === "CHECKOUT_PHONE") {
+    if (isQuestionInput && !/\d{5,}/.test(trimmed)) {
+      return { handled: false, state, reply: { text: "" } };
+    }
     const isWaNum =
       trimmed === "use_wa_number" ||
       trimmed === `${OPTION_PREFIX}use_wa_phone` ||
@@ -521,12 +532,18 @@ export function processCakestryTurn(
   }
 
   if (state.step === "CHECKOUT_ADDRESS" && trimmed.length >= 3) {
+    if (isQuestionInput) {
+      return { handled: false, state, reply: { text: "" } };
+    }
     state.orderDraft.deliveryAddress = trimmed;
     state.step = "CHECKOUT_DATE_TIME";
     return renderCheckoutDateTimePrompt(state);
   }
 
   if (state.step === "CHECKOUT_DATE_TIME" && trimmed.length >= 2) {
+    if (isQuestionInput) {
+      return { handled: false, state, reply: { text: "" } };
+    }
     state.orderDraft.dateTime = trimmed;
     state.step = "PAYMENT_VERIFICATION";
     return renderOrderSummaryAndPayment(state);
@@ -615,6 +632,11 @@ export function processCakestryTurn(
 
     state.step = "ORDER_CONFIRM_ITEMS";
     return renderOrderConfirmItems(state);
+  }
+
+  // If customer is asking an inquiry / question, let ChatGPT answer it directly!
+  if (nlu.intent === "INQUIRY") {
+    return { handled: false, state, reply: { text: "" } };
   }
 
   // =========================================================================

@@ -228,7 +228,7 @@ export async function parseCustomerInputNLU(
   }
 
   // 0b. Active Checkout & Custom Cake Form Protection
-  // When filling customer details (name, phone, address, date/time), customer text is strictly form input!
+  // When filling customer details (name, phone, address, date/time), customer text is form input UNLESS it is a question or inquiry!
   if (currentStep?.startsWith("CHECKOUT_") || currentStep?.startsWith("CUSTOM_CAKE_")) {
     const lowered = trimmed.toLowerCase();
     const isCancelOrMenu =
@@ -239,7 +239,12 @@ export async function parseCustomerInputNLU(
       lowered === "hata do" ||
       lowered.includes("cancel order");
 
-    if (!isCancelOrMenu) {
+    const isQuestion =
+      trimmed.includes("?") ||
+      trimmed.includes("؟") ||
+      /\b(kya|kiya|kahan|kidhar|kab|kitna|kitne|kitni|kaise|kese|kesa|kaisi|kyun|kyu|kon|kaun|konsa|konsi|what|where|when|why|how|which|who|price|prices|rate|rates|cost|timing|timings|charges|delivery|fee|fees|menu|flavor|flavors|discount|discounts|address|location|eggless|sugar-free|custom|phone|number)\b/i.test(trimmed);
+
+    if (!isCancelOrMenu && !isQuestion) {
       return {
         intent: "PROVIDE_DETAILS",
         language: lang,
@@ -625,6 +630,17 @@ export function parseDeterministicNLU(
   // Check for Checkout Intent
   if (lowered === "checkout" || lowered === "check out" || lowered.includes("proceed to checkout") || lowered.includes("bill bana dein")) {
     return { intent: "CHECKOUT", language, products: [], rawText: trimmed };
+  }
+
+  // Check for Questions & Inquiries (e.g. "do you have...", "kya aapke paas...", "available hai?", "kab tak open hai?")
+  // Questions must route to ChatGPT for intelligent, natural replies instead of triggering category buttons!
+  const isQuestionOrAvailabilityInquiry =
+    (trimmed.includes("?") || trimmed.includes("؟")) ||
+    /\b(do you have|is there|can i get|available hai|mil sakta hai|milta hai|kya aap|sugar-free|eggless|gluten-free)\b/i.test(lowered) ||
+    /^(?:kya|kiya|kahan|kidhar|kab|kitna|kitne|kitni|kaise|kese|kesa|kaisi|kyun|kyu|kon|kaun|konsa|konsi|what|where|when|why|how|which|who)\b/i.test(lowered);
+
+  if (isQuestionOrAvailabilityInquiry && !lowered.includes("menu") && !lowered.includes("add") && !lowered.includes("order")) {
+    return { intent: "INQUIRY", language, products: [], rawText: trimmed };
   }
 
   // Check for Category Match (Browsing intent)
